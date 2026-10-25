@@ -7,27 +7,67 @@ import { createRubyMaterial } from './rubyMaterial'
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/eros.glb`
 
-// 은은한 아이보리 그라데이션 배경 (유리가 비춰 보는 배경과 화면 배경을 동일하게)
-function useBackdrop() {
-  const scene = useThree((s) => s.scene)
-  useEffect(() => {
-    const c = document.createElement('canvas')
-    c.width = 4; c.height = 256
-    const g = c.getContext('2d')
-    const grad = g.createLinearGradient(0, 0, 0, 256)
-    grad.addColorStop(0, '#e9e4df')
-    grad.addColorStop(0.6, '#f3efeb')
-    grad.addColorStop(1, '#ece6e1')
-    g.fillStyle = grad
-    g.fillRect(0, 0, 4, 256)
-    const tex = new THREE.CanvasTexture(c)
-    tex.colorSpace = THREE.SRGBColorSpace
-    scene.background = tex
-    return () => { scene.background = null; tex.dispose() }
-  }, [scene])
+// 검은 배경 위의 유리가 "빛이 통과하는" 루비로 보이려면, 유리 뒤에 투과될 빛이 있어야 합니다.
+// three.js의 투과(transmission)는 화면에 먼저 그려진 뒤쪽 장면을 굴절시키므로,
+// 카메라 뒤쪽 멀리에 소프트박스 모양의 백라이트 카드를 두고 "투과 패스에서만" 그립니다.
+// 최종 화면(메인 패스)에는 그려지지 않으므로 배경은 순수 #000000 그대로입니다.
+function makeCardTexture() {
+  const c = document.createElement('canvas')
+  c.width = 512; c.height = 512
+  const g = c.getContext('2d')
+  g.fillStyle = '#050505'
+  g.fillRect(0, 0, 512, 512)
+  const glow = (x, y, rx, ry, a) => {
+    g.save(); g.translate(x, y); g.scale(rx / ry, 1)
+    const r = g.createRadialGradient(0, 0, 0, 0, 0, ry)
+    r.addColorStop(0, `rgba(255,244,236,${a})`); r.addColorStop(0.55, `rgba(255,236,226,${a * 0.45})`); r.addColorStop(1, 'rgba(255,230,220,0)')
+    g.fillStyle = r; g.beginPath(); g.arc(0, 0, ry, 0, Math.PI * 2); g.fill(); g.restore()
+  }
+  glow(262, 230, 250, 215, 1.0) // 중앙의 빛 (주변은 어둡게 남겨 명암 대비)
+  glow(95, 120, 90, 170, 0.5) // 왼쪽 위 보조 빛
+  glow(400, 400, 110, 110, 0.35) // 오른쪽 아래 작은 빛
+  g.fillStyle = 'rgba(255,240,232,0.55)'; g.fillRect(430, 40, 26, 430) // 오른쪽 세로 스트립
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
 }
 
-function Eros({ levelRef, glowRef, hudRef }) {
+function BackLight() {
+  const mesh = useRef()
+  const camera = useThree((st) => st.camera)
+  const size = useThree((st) => st.size)
+  const tex = useMemo(() => makeCardTexture(), [])
+  const mat = useMemo(() => {
+    const m = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, depthWrite: false })
+    m.color.setRGB(1.2, 1.2, 1.2) // 선형 HDR 밝기 (투과 버퍼는 half-float)
+    return m
+  }, [tex])
+  const fwd = useMemo(() => new THREE.Vector3(), [])
+  useEffect(() => { if (new URLSearchParams(location.search).has('dev') || new URLSearchParams(location.search).has('test')) window.__card = mat }, [mat])
+  useFrame(() => {
+    const m = mesh.current
+    if (!m) return
+    const D = 20
+    camera.getWorldDirection(fwd)
+    m.position.copy(camera.position).addScaledVector(fwd, D)
+    m.quaternion.copy(camera.quaternion)
+    const h = 2 * D * Math.tan((camera.fov * Math.PI) / 360) * 1.25
+    m.scale.set(h * (size.width / size.height), h, 1)
+  })
+  return (
+    <mesh
+      ref={mesh}
+      frustumCulled={false}
+      renderOrder={-10}
+      onBeforeRender={(renderer) => { mat.colorWrite = renderer.getRenderTarget() !== null }}
+    >
+      <planeGeometry args={[1, 1]} />
+      <primitive object={mat} attach="material" />
+    </mesh>
+  )
+}
+
+function Eros({ levelRef, settingsRef, glowRef, hudRef }) {
   const { scene } = useGLTF(MODEL_URL)
   const engine = useMemo(() => new HeartEngine(), [])
   const material = useMemo(() => createRubyMaterial(), [])
@@ -52,11 +92,15 @@ function Eros({ levelRef, glowRef, hudRef }) {
   }, [mesh, material])
 
   useFrame((_, dt) => {
-    const o = engine.update(dt, levelRef.current.value)
+    const o = engine.update(dt, levelRef.current.value, settingsRef.current.strength ?? 1)
+    if (typeof window.__forcePulse === 'number') { // 개발용: 특정 변형량을 고정해 형태 확인
+      const p = window.__forcePulse
+      o.scale = p * 0.8; o.inflate = p * 0.2 * 0.35; o.glow = Math.min(1, Math.max(0, p / 0.165))
+    }
     if (group.current) group.current.scale.setScalar(1 + o.scale)
     material.userData.uInflate.value = o.inflate
-    if (glowRef.current) glowRef.current.style.opacity = (0.0 + o.glow * 0.9).toFixed(3)
-    if (hudRef.current) { hudRef.current.level = o.level; hudRef.current.active = o.active; hudRef.current.bpm = o.bpm }
+    if (glowRef.current) glowRef.current.style.opacity = (o.glow * 0.8).toFixed(3)
+    if (hudRef.current) { hudRef.current.level = o.level; hudRef.current.pulse = o.pulse; hudRef.current.scale = o.scale; hudRef.current.active = o.active; hudRef.current.bpm = o.bpm }
   })
 
   return (
@@ -106,25 +150,23 @@ function Rig({ phaseLive }) {
   )
 }
 
-function Backdrop() { useBackdrop(); return null }
-
-export default function Scene({ levelRef, glowRef, hudRef, phaseLive }) {
+export default function Scene({ levelRef, settingsRef, glowRef, hudRef, phaseLive }) {
   const dpr = typeof window !== 'undefined' && window.innerWidth < 800 ? [1, 1.5] : [1, 2]
   return (
     <Canvas
       dpr={dpr}
       camera={{ fov: 30, near: 0.1, far: 60, position: [-3.2, 1.25, -5.4] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
+      onCreated={({ gl }) => { if ('transmissionResolutionScale' in gl) gl.transmissionResolutionScale = window.innerWidth < 800 ? 0.75 : 1 }}
       style={{ touchAction: 'none' }}
     >
-      <Backdrop />
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[-3, 5, -4]} intensity={1.1} />
+      <color attach="background" args={['#000000']} />
+      <BackLight />
       <Suspense fallback={null}>
-        <Eros levelRef={levelRef} glowRef={glowRef} hudRef={hudRef} />
+        <Eros levelRef={levelRef} settingsRef={settingsRef} glowRef={glowRef} hudRef={hudRef} />
         {/* 스튜디오 소프트박스: 외부 HDR 파일 없이 코드로 생성 (곡면을 따라 흐르는 하이라이트) */}
         <Environment resolution={512} frames={1}>
-          <color attach="background" args={['#cdc6bf']} />
+          <color attach="background" args={['#000000']} />
           <Lightformer form="rect" intensity={7} position={[-5, 3.5, -4]} scale={[6, 4, 1]} />
           <Lightformer form="rect" intensity={5} position={[4.5, 2.5, -5]} scale={[1.2, 6, 1]} />
           <Lightformer form="rect" intensity={5} position={[-5, 0.5, 4]} scale={[1, 6, 1]} />

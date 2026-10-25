@@ -1,9 +1,9 @@
 :root {
-  --ivory: #efeae5;
-  --ink: #2a2321;
-  --muted: #7d726c;
+  --ivory: #000000;
+  --ink: #e8e1dd;
+  --muted: #9b918c;
   --ruby: #b3122c;
-  --ruby-deep: #8d0c20;
+  --ruby-deep: #d23248;
   --serif: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
   --sans: 'Noto Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
@@ -26,8 +26,8 @@ body {
 /* 박동에 맞춰 은은히 번지는 붉은 빛 (캔버스 위에 겹침, 클릭은 통과) */
 .glow {
   position: absolute; inset: 0; pointer-events: none; opacity: 0;
-  background: radial-gradient(60% 55% at 50% 48%, rgba(200, 16, 46, 0.16), rgba(200, 16, 46, 0) 70%);
-  mix-blend-mode: multiply;
+  background: radial-gradient(60% 55% at 50% 48%, rgba(190, 20, 44, 0.10), rgba(190, 20, 44, 0) 68%);
+  mix-blend-mode: screen;
 }
 
 .title {
@@ -59,8 +59,8 @@ body {
 .btn:active:not(:disabled) { transform: scale(0.97); }
 .btn:disabled { opacity: .55; cursor: default; }
 .btn.ghost { background: transparent; color: var(--ruby-deep); }
-.btn.ghost:hover { background: rgba(179, 18, 44, .08); }
-.privacy { font-size: 11px; color: #9a8f88; letter-spacing: 0.04em; max-width: 360px; }
+.btn.ghost:hover { background: rgba(210, 50, 72, .12); }
+.privacy { font-size: 11px; color: #7a716c; letter-spacing: 0.04em; max-width: 360px; }
 
 .gear {
   position: absolute; right: max(16px, env(safe-area-inset-right)); top: max(20px, env(safe-area-inset-top));
@@ -72,23 +72,23 @@ body {
 .panel {
   position: absolute; right: max(14px, env(safe-area-inset-right)); top: calc(max(20px, env(safe-area-inset-top)) + 38px);
   width: min(320px, calc(100vw - 28px)); padding: 18px 18px 16px; border-radius: 16px;
-  background: rgba(250, 247, 244, 0.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(120, 100, 90, .16); box-shadow: 0 10px 40px rgba(60, 30, 30, .12);
+  background: rgba(18, 14, 14, 0.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, .10); box-shadow: 0 10px 40px rgba(0, 0, 0, .6);
   display: flex; flex-direction: column; gap: 12px; font-size: 13px; max-height: 70dvh; overflow: auto;
 }
 .panel label { display: flex; flex-direction: column; gap: 6px; }
 .panel label > span { display: flex; justify-content: space-between; }
 .panel em { font-style: normal; color: var(--muted); }
 .panel small { color: var(--muted); line-height: 1.55; font-size: 11.5px; }
-.panel hr { border: none; border-top: 1px solid rgba(120, 100, 90, .18); }
+.panel hr { border: none; border-top: 1px solid rgba(255, 255, 255, .14); }
 .panel input[type=range] { width: 100%; accent-color: var(--ruby); }
 .panel .check { flex-direction: row; align-items: center; gap: 8px; }
-.meter { height: 4px; border-radius: 2px; background: rgba(120, 100, 90, .18); overflow: hidden; }
+.meter { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .14); overflow: hidden; }
 .meter i { display: block; height: 100%; background: var(--ruby); transform-origin: left; transform: scaleX(0); }
 .row { display: flex; gap: 8px; }
 .mini {
   font: inherit; font-size: 12px; padding: 7px 12px; border-radius: 999px; cursor: pointer;
-  border: 1px solid rgba(120, 100, 90, .35); background: transparent; color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, .28); background: transparent; color: var(--ink);
 }
 .mini:disabled { opacity: .4; cursor: default; }
 

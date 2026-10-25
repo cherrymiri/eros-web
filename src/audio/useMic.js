@@ -93,9 +93,9 @@ export function useMic(levelRef, settingsRef) {
         }
         levelRef.current.value = 0
       } else {
-        // 기본 소음 + 여유(6dB) + 사용자 조절값 이상부터 반응, 감도에 따라 풀스케일 범위가 달라짐
+        // 기본 소음 + 여유(6dB) + 사용자 조절값 이상부터 반응. 보통 말소리는 중간, 큰 목소리는 상단에 오도록 40dB 범위
         const gate = s.ambientDb + 6 + s.gateOffset
-        const range = 28 / s.sensitivity
+        const range = 40 / s.sensitivity // 속삭임~고함 구간을 넓게 쓰도록 40dB (감도가 높을수록 좁아짐)
         levelRef.current.value = Math.min(1, Math.max(0, (db - gate) / range))
       }
       res.current.raf = requestAnimationFrame(tick)

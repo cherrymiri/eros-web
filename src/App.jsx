@@ -3,7 +3,7 @@ import Scene from './components/Scene'
 import { useMic } from './audio/useMic'
 import { useTestSource } from './audio/useTestSource'
 
-const DEFAULTS = { sensitivity: 1, gateOffset: 0 }
+const DEFAULTS = { sensitivity: 1, gateOffset: 0, strength: 1 }
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('eros-settings') || '{}') } } catch { return { ...DEFAULTS } }
 }
@@ -73,7 +73,7 @@ export default function App() {
   return (
     <div className="app">
       <div className="stage">
-        <Scene levelRef={levelRef} glowRef={glowRef} hudRef={hudRef} phaseLive={live || (testOn && !busy)} />
+        <Scene levelRef={levelRef} settingsRef={settingsRef} glowRef={glowRef} hudRef={hudRef} phaseLive={live || (testOn && !busy)} />
         <div className="glow" ref={glowRef} aria-hidden="true" />
       </div>
 
@@ -118,11 +118,16 @@ export default function App() {
               onChange={(e) => update({ sensitivity: +e.target.value })} />
           </label>
           <label>
+            <span>박동 강도 <em>{settings.strength.toFixed(1)}×</em></span>
+            <input type="range" min="0.4" max="1.6" step="0.1" value={settings.strength}
+              onChange={(e) => update({ strength: +e.target.value })} />
+          </label>
+          <label>
             <span>소음 기준 <em>{settings.gateOffset > 0 ? '+' : ''}{settings.gateOffset} dB</em></span>
             <input type="range" min="-6" max="24" step="1" value={settings.gateOffset}
               onChange={(e) => update({ gateOffset: +e.target.value })} />
           </label>
-          <small>배경 소음에 계속 뛰면 ‘소음 기준’을 올리고, 반응이 약하면 ‘감도’를 올려 주세요.</small>
+          <small>배경 소음에 계속 뛰면 ‘소음 기준’을 올리고, 소리에 잘 반응하지 않으면 ‘감도’를 올려 주세요. ‘박동 강도’는 움직임의 크기만 조절합니다(1.0× 기준 큰 소리 약 15%).</small>
           <div className="row">
             <button className="mini" onClick={mic.recalibrate} disabled={!live}>주변 소음 다시 측정</button>
           </div>

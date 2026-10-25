@@ -6,14 +6,14 @@ import * as THREE from 'three'
 //   Blender는 실제 두께로 흡수를 계산하지만 웹은 두께 값이 하나라서, 몸통은 두껍게/호른은 얇게 위치로 보정합니다.
 export function createRubyMaterial() {
   const m = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color('#ffe0e0'),
+    color: new THREE.Color('#ffd4d4'),
     metalness: 0,
     roughness: 0.02,
     transmission: 1,
     ior: 1.52,
     thickness: 0.1,
-    attenuationColor: new THREE.Color().setRGB(0.9, 0.03, 0.05),
-    attenuationDistance: 0.12,
+    attenuationColor: new THREE.Color().setRGB(0.8, 0.01, 0.02),
+    attenuationDistance: 0.09,
     clearcoat: 0.2,
     clearcoatRoughness: 0,
     envMapIntensity: 1.25,
@@ -43,6 +43,6 @@ export function createRubyMaterial() {
         #endif`,
       )
   }
-  m.customProgramCacheKey = () => 'eros-ruby-v2'
+  m.customProgramCacheKey = () => 'eros-ruby-v4'
   return m
 }
