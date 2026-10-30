@@ -161,7 +161,7 @@ function Rig({ phaseLive }) {
   // 화면 비율(모바일 세로)에 맞춰 처음 거리를 자동 조정
   useEffect(() => {
     const aspect = size.width / size.height
-    const dist = 6.9 * Math.max(1, 1.3 / aspect)
+    const dist = aspect < 0.7 ? 13.8 : 6.9 * Math.max(1, 1.3 / aspect) // 세로 화면: 오른쪽 BPM 게이지 자리를 비워 두도록 조금 멀리
     const dir = new THREE.Vector3(-3.2, 1.25, -5.4).normalize()
     camera.position.copy(dir.multiplyScalar(dist))
     camera.lookAt(0, 0, 0)
@@ -171,7 +171,7 @@ function Rig({ phaseLive }) {
   useEffect(() => {
     const w = size.width, h = size.height
     const narrow = w < 700
-    const shift = narrow ? Math.min(40, w * 0.09) : Math.min(w * 0.1, 150)
+    const shift = narrow ? Math.min(52, w * 0.13) : Math.min(w * 0.1, 150)
     camera.setViewOffset(w, h, shift, narrow ? -4 : -h * 0.03, w, h) // y: 장면을 살짝 위로 (문구와 겹침 방지)
     camera.updateProjectionMatrix()
     return () => { camera.clearViewOffset(); camera.updateProjectionMatrix() }
@@ -191,7 +191,7 @@ function Rig({ phaseLive }) {
       rotateSpeed={0.7}
       zoomSpeed={0.7}
       minDistance={2.6}
-      maxDistance={11}
+      maxDistance={20}
       autoRotateSpeed={0.55}
       onStart={() => { last.current = performance.now() }}
       onChange={() => { last.current = performance.now() }}

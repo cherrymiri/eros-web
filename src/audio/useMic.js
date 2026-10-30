@@ -16,7 +16,7 @@ export function useMic(voiceRef, settingsRef) {
   const cleanup = useCallback(() => {
     const r = res.current
     r.run++
-    cancelAnimationFrame(r.raf)
+    clearInterval(r.raf)
     if (r.stream) r.stream.getTracks().forEach((t) => t.stop())
     if (r.ctx && r.ctx.state !== 'closed') r.ctx.close().catch(() => {})
     r.stream = null
@@ -42,7 +42,7 @@ export function useMic(voiceRef, settingsRef) {
       // 자동 게인(AGC)은 끄고(작은 소리가 갑자기 커지는 것 방지), 브라우저의 소음 억제는 설정에 따라 사용
       const s = settingsRef.current
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: s.noiseSuppression !== false, autoGainControl: false },
+        audio: { echoCancellation: false, noiseSuppression: s.noiseSuppression === true, autoGainControl: false },
       })
     } catch (e) {
       const n = e && e.name
@@ -81,7 +81,7 @@ export function useMic(voiceRef, settingsRef) {
     const tick = () => {
       if (res.current.run !== myRun) return
       const now = performance.now()
-      const dt = Math.min(0.1, (now - last) / 1000)
+      const dt = Math.min(0.5, (now - last) / 1000) // 화면이 느려져도 실제 경과 시간으로 계산
       last = now
       if (hasF32) an.getFloatTimeDomainData(f32)
       else { an.getByteTimeDomainData(u8); for (let i = 0; i < u8.length; i++) f32[i] = (u8[i] - 128) / 128 }
@@ -89,9 +89,9 @@ export function useMic(voiceRef, settingsRef) {
       const v = voiceRef.current
       v.voicing = det.voicing; v.candidate = det.candidate; v.db = det.db; v.floor = det.floor; v.harmonic = det.harmonic
       if (wasCal && det.calibrated) { wasCal = false; setStatus('live') }
-      res.current.raf = requestAnimationFrame(tick)
     }
-    res.current.raf = requestAnimationFrame(tick)
+    // 그래픽이 무거워 화면 프레임이 느려져도 발성 판단은 일정한 간격으로 계속 돌도록 타이머 사용
+    res.current.raf = setInterval(tick, 30)
   }, [cleanup, voiceRef, settingsRef])
 
   // 다시 측정(설정창): 켜져 있는 동안 주변 소음 기준을 다시 잡음

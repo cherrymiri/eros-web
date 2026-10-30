@@ -7,7 +7,7 @@ import Readout from './components/Readout'
 import Phrase from './components/Phrase'
 import { useBpm } from './heart/useBpm'
 
-const DEFAULTS = { gateOffset: 0, strength: 1, noiseSuppression: true }
+const DEFAULTS = { gateOffset: 0, strength: 1, noiseSuppression: false }
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('eros-settings') || '{}') } } catch { return { ...DEFAULTS } }
 }
@@ -146,7 +146,7 @@ export default function App() {
           </label>
           <label className="check">
             <input type="checkbox" checked={settings.noiseSuppression} onChange={(e) => update({ noiseSuppression: e.target.checked })} />
-            <span>브라우저 소음 억제 (다음 시작부터 적용)</span>
+            <span>브라우저 소음 억제 — 시끄러운 전시장에서만 (다음 시작부터)</span>
           </label>
           <small>막대가 붉게 켜질 때 목소리로 인식됩니다. 주변 소음에도 인식되면 ‘소음 기준’을 올리고, 작은 목소리를 놓치면 낮춰 주세요. BPM은 소리의 크기가 아니라 소리를 이어 낸 시간으로 결정됩니다.</small>
           <div className="row">

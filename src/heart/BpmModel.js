@@ -53,13 +53,14 @@ export class BpmModel {
     this.target = bpmFromCharge(this.charge, c)
     this.bpm += (this.target - this.bpm) * (1 - Math.exp(-dt / c.displayTau))
 
-    // 문구 단계 (히스테리시스)
+    // 문구 단계 (히스테리시스): 올라갈 때는 120/145, 내려올 때는 116.5/141.5 기준
     const b = this.bpm
-    if (this.stage === 1 && b >= c.stage2Up) this.stage = 2
-    else if (this.stage === 2) {
-      if (b >= c.stage3Up) this.stage = 3
-      else if (b < c.stage2Down) this.stage = 1
-    } else if (this.stage === 3 && b < c.stage3Down) this.stage = b < c.stage2Down ? 1 : 2
+    for (let i = 0; i < 3; i++) {
+      if (this.stage === 1 && b >= c.stage2Up) this.stage = 2
+      else if (this.stage === 2 && b >= c.stage3Up) this.stage = 3
+      else if (this.stage === 3 && b < c.stage3Down) this.stage = 2
+      else if (this.stage === 2 && b < c.stage2Down) this.stage = 1
+    }
     return this
   }
 }

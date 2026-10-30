@@ -52,7 +52,7 @@ export function createRubyMaterial() {
   m.userData.uInflate = { value: 0 }
   m.userData.uBack = { value: null }
   m.userData.uMain = { value: new THREE.Vector2(1, 1) }
-  m.userData.uThickScale = { value: 0.4 }
+  m.userData.uThickScale = { value: 0.5 }
   m.userData.uThickMin = { value: 0.004 }
   m.userData.uThickFallback = { value: 0.05 }
   m.onBeforeCompile = (shader) => {

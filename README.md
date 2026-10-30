@@ -32,3 +32,12 @@ Vercel이 GitHub 저장소의 `main` 브랜치를 자동 배포합니다. 코드
 
 ## 재질 (src/components/rubyMaterial.js, Scene.jsx `BackLight`)
 검정 배경에서도 유리를 통과하는 빛이 있도록, 투과 패스에서만 그려지는 백라이트 카드를 둡니다(화면에는 나타나지 않음).
+
+
+## v3 — 발성 지속 시간 기반 BPM (최종 수정)
+
+- 박동은 소리의 **크기가 아니라 소리를 이어 낸 누적 시간**으로 빨라집니다. 80 BPM(기본) → 120 BPM(약 20초 누적) → 145 BPM(약 38초 누적) → 160 BPM(최대).
+- 모든 조절값은 `src/heart/bpmConfig.js` 한 파일에 있습니다 (누적 시간 곡선, 숨 쉬는 허용 시간, 감소 속도, 문구 단계 경계, 발성 감지 기준).
+- `src/audio/voiceDetector.js`: 주변 소음 적응 기준 + 주기성(목소리의 규칙적인 떨림) + 지속 시간 + 일정한 기계음 제외.
+- `src/heart/BpmModel.js`: 누적 시간 → BPM, 숨 쉬는 멈춤은 천천히 감소, 긴 침묵은 80으로 복귀, 문구 단계 히스테리시스.
+- 이전(소리 크기 기반) 버전으로 되돌리려면: `git checkout v2-loudness-pulse` (태그) 또는 `backup/v2-loudness-pulse` 브랜치.

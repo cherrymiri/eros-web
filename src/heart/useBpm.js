@@ -9,7 +9,7 @@ export function useBpm(voiceRef, bpmRef) {
   if (!model.current) model.current = new BpmModel()
   useEffect(() => {
     const m = model.current
-    let raf = 0
+    let timer = 0
     let last = performance.now()
     let st = m.stage
     const tick = () => {
@@ -17,15 +17,15 @@ export function useBpm(voiceRef, bpmRef) {
       let dt = (now - last) / 1000
       last = now
       const ts = typeof window.__bpmTimeScale === 'number' ? window.__bpmTimeScale : 1 // 개발용 시간 가속
-      m.update(Math.min(dt, 0.25) * ts, voiceRef.current.voicing)
+      m.update(Math.min(dt, 0.5) * ts, voiceRef.current.voicing)
       const b = bpmRef.current
       b.bpm = m.bpm; b.target = m.target; b.charge = m.charge; b.stage = m.stage; b.voicing = voiceRef.current.voicing
       if (m.stage !== st) { st = m.stage; setStage(st) }
-      raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
+    // 화면 프레임이 느려져도 BPM 계산은 실제 시간 기준으로 일정하게 진행되도록 타이머 사용
+    timer = setInterval(tick, 33)
     if (/[?&](dev|test)\b/.test(location.search)) window.__bpmModel = m
-    return () => cancelAnimationFrame(raf)
+    return () => clearInterval(timer)
   }, [voiceRef, bpmRef])
   return stage
 }
