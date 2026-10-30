@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer, OrbitControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { HeartEngine } from '../heart/HeartEngine'
-import { createRubyMaterial } from './rubyMaterial'
+import { createRubyMaterial, createBackDepthMaterial } from './rubyMaterial'
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/eros.glb`
 
@@ -32,8 +32,9 @@ function makeCardTexture() {
   return tex
 }
 
-function BackLight() {
+function BackLight({ fxRef }) {
   const mesh = useRef()
+  useEffect(() => { fxRef.current.card = mesh.current }, [fxRef])
   const camera = useThree((st) => st.camera)
   const size = useThree((st) => st.size)
   const tex = useMemo(() => makeCardTexture(), [])
@@ -47,6 +48,9 @@ function BackLight() {
   useFrame(() => {
     const m = mesh.current
     if (!m) return
+    const f = fxRef.current
+    const k = 1.2 * (1 + 0.12 * f.bpmN + 0.22 * f.climax * f.beat)
+    mat.color.setRGB(k, k, k)
     const D = 20
     camera.getWorldDirection(fwd)
     m.position.copy(camera.position).addScaledVector(fwd, D)
@@ -67,11 +71,19 @@ function BackLight() {
   )
 }
 
-function Eros({ levelRef, settingsRef, glowRef, hudRef }) {
+function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
   const { scene } = useGLTF(MODEL_URL)
+  const { gl } = useThree()
   const engine = useMemo(() => new HeartEngine(), [])
   const material = useMemo(() => createRubyMaterial(), [])
   const group = useRef()
+  const backMat = useMemo(() => createBackDepthMaterial(material.userData.uInflate), [material])
+  const backRT = useMemo(() => {
+    const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true })
+    return rt
+  }, [])
+  const tmpSize = useMemo(() => new THREE.Vector2(), [])
+  useEffect(() => () => { backRT.dispose(); backMat.dispose() }, [backRT, backMat])
 
   const { mesh, center, pivot } = useMemo(() => {
     let mesh
@@ -91,16 +103,44 @@ function Eros({ levelRef, settingsRef, glowRef, hudRef }) {
     return () => material.dispose()
   }, [mesh, material])
 
-  useFrame((_, dt) => {
-    const o = engine.update(dt, levelRef.current.value, settingsRef.current.strength ?? 1)
+  useFrame(({ scene: sc, camera }, dt) => {
+    const bpm = bpmRef.current.bpm
+    const o = engine.update(dt, bpm, settingsRef.current.strength ?? 1)
     if (typeof window.__forcePulse === 'number') { // 개발용: 특정 변형량을 고정해 형태 확인
       const p = window.__forcePulse
       o.scale = p * 0.8; o.inflate = p * 0.2 * 0.35; o.glow = Math.min(1, Math.max(0, p / 0.165))
     }
     if (group.current) group.current.scale.setScalar(1 + o.scale)
     material.userData.uInflate.value = o.inflate
-    if (glowRef.current) glowRef.current.style.opacity = (o.glow * 0.8).toFixed(3)
-    if (hudRef.current) { hudRef.current.level = o.level; hudRef.current.pulse = o.pulse; hudRef.current.scale = o.scale; hudRef.current.active = o.active; hudRef.current.bpm = o.bpm }
+    // BPM이 높을수록 전체 빛이 조금씩 밝아지고, 145 이상에서는 박동마다 빛이 살짝 출렁임
+    const climax = Math.min(1, Math.max(0, (bpm - 120) / 40))
+    const fx = fxRef.current
+    fx.beat = o.beat; fx.bpmN = o.bpmN; fx.climax = climax
+    material.envMapIntensity = 1.25 + 0.25 * o.bpmN + 0.35 * climax * o.beat
+    if (glowRef.current) glowRef.current.style.opacity = Math.min(1, 0.18 + 0.35 * o.bpmN + o.glow * (0.45 + 0.4 * o.bpmN)).toFixed(3)
+    const h = hudRef.current
+    h.pulse = o.pulse; h.scale = o.scale; h.bpm = bpm
+
+    // 뒷면 깊이 패스 (시선별 유리 두께 계산용). 박동으로 변형된 현재 형태 그대로 기록
+    gl.getDrawingBufferSize(tmpSize)
+    const k = 1
+    const bw = Math.max(2, Math.round(tmpSize.x * k)), bh = Math.max(2, Math.round(tmpSize.y * k))
+    if (backRT.width !== bw || backRT.height !== bh) backRT.setSize(bw, bh)
+    material.userData.uMain.value.copy(tmpSize)
+    const card = fxRef.current.card
+    const prevRT = gl.getRenderTarget()
+    const prevBg = sc.background
+    mesh.material = backMat
+    if (card) card.visible = false
+    sc.background = null
+    gl.setRenderTarget(backRT)
+    gl.clear()
+    gl.render(sc, camera)
+    gl.setRenderTarget(prevRT)
+    sc.background = prevBg
+    if (card) card.visible = true
+    mesh.material = material
+    material.userData.uBack.value = backRT.texture
   })
 
   return (
@@ -121,12 +161,21 @@ function Rig({ phaseLive }) {
   // 화면 비율(모바일 세로)에 맞춰 처음 거리를 자동 조정
   useEffect(() => {
     const aspect = size.width / size.height
-    const dist = 6.3 * Math.max(1, 1.35 / aspect)
+    const dist = 6.9 * Math.max(1, 1.3 / aspect)
     const dir = new THREE.Vector3(-3.2, 1.25, -5.4).normalize()
     camera.position.copy(dir.multiplyScalar(dist))
     camera.lookAt(0, 0, 0)
     camera.updateProjectionMatrix()
   }, [size.width > size.height, camera]) // 가로/세로가 바뀔 때만 초기화 (사용자 확대 유지)
+  // 오른쪽의 BPM 숫자·게이지와 겹치지 않도록 3D 장면을 왼쪽으로 살짝 옮김 (화면 오프셋만 변경, 모델은 그대로)
+  useEffect(() => {
+    const w = size.width, h = size.height
+    const narrow = w < 700
+    const shift = narrow ? Math.min(40, w * 0.09) : Math.min(w * 0.1, 150)
+    camera.setViewOffset(w, h, shift, narrow ? -4 : -h * 0.03, w, h) // y: 장면을 살짝 위로 (문구와 겹침 방지)
+    camera.updateProjectionMatrix()
+    return () => { camera.clearViewOffset(); camera.updateProjectionMatrix() }
+  }, [size.width, size.height, camera])
   useFrame(() => {
     if (!controls.current) return
     const idle = performance.now() - last.current > 5000
@@ -150,7 +199,8 @@ function Rig({ phaseLive }) {
   )
 }
 
-export default function Scene({ levelRef, settingsRef, glowRef, hudRef, phaseLive }) {
+export default function Scene({ bpmRef, settingsRef, glowRef, hudRef, phaseLive }) {
+  const fxRef = useRef({ beat: 0, bpmN: 0, climax: 0 })
   const dpr = typeof window !== 'undefined' && window.innerWidth < 800 ? [1, 1.5] : [1, 2]
   return (
     <Canvas
@@ -161,9 +211,9 @@ export default function Scene({ levelRef, settingsRef, glowRef, hudRef, phaseLiv
       style={{ touchAction: 'none' }}
     >
       <color attach="background" args={['#000000']} />
-      <BackLight />
+      <BackLight fxRef={fxRef} />
       <Suspense fallback={null}>
-        <Eros levelRef={levelRef} settingsRef={settingsRef} glowRef={glowRef} hudRef={hudRef} />
+        <Eros bpmRef={bpmRef} settingsRef={settingsRef} glowRef={glowRef} hudRef={hudRef} fxRef={fxRef} />
         {/* 스튜디오 소프트박스: 외부 HDR 파일 없이 코드로 생성 (곡면을 따라 흐르는 하이라이트) */}
         <Environment resolution={512} frames={1}>
           <color attach="background" args={['#000000']} />

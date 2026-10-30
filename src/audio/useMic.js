@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { VoiceDetector } from './voiceDetector'
 
-// 마이크는 "소리 크기"만 실시간 분석합니다. 오디오는 스피커로 재생·저장·전송되지 않습니다.
+// 마이크는 "목소리가 이어지고 있는지"만 이 기기 안에서 실시간 판단합니다. 오디오는 재생·저장·전송되지 않습니다.
 // status: idle | requesting | calibrating | live | denied | nomic | unsupported | error
-export function useMic(levelRef, settingsRef) {
+// voiceRef.current = { voicing, candidate, db, floor, harmonic }
+export function useMic(voiceRef, settingsRef) {
   const [status, setStatus] = useState('idle')
-  const res = useRef({ stream: null, ctx: null, raf: 0, run: 0 })
+  const res = useRef({ stream: null, ctx: null, raf: 0, run: 0, det: null })
+
+  const clearVoice = useCallback(() => {
+    const v = voiceRef.current
+    v.voicing = false; v.candidate = false; v.db = -100; v.harmonic = 0; v.mic = false
+  }, [voiceRef])
 
   const cleanup = useCallback(() => {
     const r = res.current
@@ -14,9 +21,8 @@ export function useMic(levelRef, settingsRef) {
     if (r.ctx && r.ctx.state !== 'closed') r.ctx.close().catch(() => {})
     r.stream = null
     r.ctx = null
-    levelRef.current.value = 0
-    levelRef.current.db = -100
-  }, [levelRef])
+    clearVoice()
+  }, [clearVoice])
 
   const stop = useCallback(() => {
     cleanup()
@@ -33,9 +39,10 @@ export function useMic(levelRef, settingsRef) {
     setStatus('requesting')
     let stream
     try {
-      // 자동 게인/노이즈 억제를 꺼야 실제 소리 크기를 그대로 읽을 수 있습니다.
+      // 자동 게인(AGC)은 끄고(작은 소리가 갑자기 커지는 것 방지), 브라우저의 소음 억제는 설정에 따라 사용
+      const s = settingsRef.current
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        audio: { echoCancellation: false, noiseSuppression: s.noiseSuppression !== false, autoGainControl: false },
       })
     } catch (e) {
       const n = e && e.name
@@ -53,57 +60,41 @@ export function useMic(levelRef, settingsRef) {
     try { await ctx.resume() } catch { /* iOS: 사용자 제스처 안에서 재개됨 */ }
     const src = ctx.createMediaStreamSource(stream)
     const an = ctx.createAnalyser()
-    an.fftSize = 1024
+    an.fftSize = 2048
     an.smoothingTimeConstant = 0
     src.connect(an) // destination에는 연결하지 않음 (재생/하울링 없음)
     res.current.stream = stream
     res.current.ctx = ctx
     stream.getAudioTracks().forEach((t) => (t.onended = () => { cleanup(); setStatus('error') }))
 
-    const f32 = typeof an.getFloatTimeDomainData === 'function' ? new Float32Array(an.fftSize) : null
+    const hasF32 = typeof an.getFloatTimeDomainData === 'function'
+    const f32 = new Float32Array(an.fftSize)
     const u8 = new Uint8Array(an.fftSize)
-    const calib = { t0: performance.now(), vals: [] }
+    const det = new VoiceDetector()
+    det.startCalibration()
+    res.current.det = det
+    voiceRef.current.mic = true
     setStatus('calibrating')
+    let last = performance.now()
+    let wasCal = true
 
     const tick = () => {
       if (res.current.run !== myRun) return
-      let sum = 0
-      if (f32) {
-        an.getFloatTimeDomainData(f32)
-        for (let i = 0; i < f32.length; i++) sum += f32[i] * f32[i]
-        sum /= f32.length
-      } else {
-        an.getByteTimeDomainData(u8)
-        for (let i = 0; i < u8.length; i++) { const v = (u8[i] - 128) / 128; sum += v * v }
-        sum /= u8.length
-      }
-      const db = 20 * Math.log10(Math.max(Math.sqrt(sum), 1e-5))
-      const s = settingsRef.current
-      levelRef.current.db = db
-
-      if (calib.t0 !== null) {
-        // 시작 직후 1.5초: 전시장의 기본 소음 측정
-        calib.vals.push(db)
-        if (performance.now() - calib.t0 > 1500) {
-          const v = calib.vals.slice().sort((a, b) => a - b)
-          const p = v[Math.floor(v.length * 0.85)] // 상위 일부는 우발적 소리로 보고 제외
-          s.ambientDb = Math.max(-68, p)
-          calib.t0 = null
-          setStatus('live')
-        }
-        levelRef.current.value = 0
-      } else {
-        // 기본 소음 + 여유(6dB) + 사용자 조절값 이상부터 반응. 보통 말소리는 중간, 큰 목소리는 상단에 오도록 40dB 범위
-        const gate = s.ambientDb + 6 + s.gateOffset
-        const range = 40 / s.sensitivity // 속삭임~고함 구간을 넓게 쓰도록 40dB (감도가 높을수록 좁아짐)
-        levelRef.current.value = Math.min(1, Math.max(0, (db - gate) / range))
-      }
+      const now = performance.now()
+      const dt = Math.min(0.1, (now - last) / 1000)
+      last = now
+      if (hasF32) an.getFloatTimeDomainData(f32)
+      else { an.getByteTimeDomainData(u8); for (let i = 0; i < u8.length; i++) f32[i] = (u8[i] - 128) / 128 }
+      det.process(f32, ctx.sampleRate, dt, settingsRef.current.gateOffset || 0)
+      const v = voiceRef.current
+      v.voicing = det.voicing; v.candidate = det.candidate; v.db = det.db; v.floor = det.floor; v.harmonic = det.harmonic
+      if (wasCal && det.calibrated) { wasCal = false; setStatus('live') }
       res.current.raf = requestAnimationFrame(tick)
     }
     res.current.raf = requestAnimationFrame(tick)
-  }, [cleanup, levelRef, settingsRef])
+  }, [cleanup, voiceRef, settingsRef])
 
-  // 다시 측정(설정창): 켜져 있는 동안 기본 소음을 재설정
+  // 다시 측정(설정창): 켜져 있는 동안 주변 소음 기준을 다시 잡음
   const recalibrate = useCallback(() => {
     if (res.current.stream) start()
   }, [start])
