@@ -23,7 +23,7 @@ export default function Phrase({ stage, reward }) {
     // 화면 중앙보다 약간 위(오브제의 윗부분 근처)에서 시작하고, 폭이 화면을 넘지 않게 배율을 제한
     const targetY = vh * (narrow ? 0.4 : 0.44)
     const dy = targetY - (r.top + r.height / 2)
-    const s = Math.min(narrow ? 2.1 : 2.6, (vw * 0.92) / Math.max(r.width * 0.62, 1))
+    const s = Math.min(narrow ? 2.1 : 2.1, (vw * 0.92) / Math.max(r.width * 0.62, 1))
     el.classList.add('intro')
     const big = `translateY(${dy}px) scale(${s})`
     anim.current = el.animate(

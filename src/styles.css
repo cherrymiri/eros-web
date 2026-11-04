@@ -4,7 +4,7 @@
   --muted: #9b918c;
   --ruby: #b3122c;
   --ruby-deep: #d23248;
-  --mono: 'Share Tech Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --mono: 'Pretendard Variable', Pretendard, 'Noto Sans KR', -apple-system, 'Segoe UI', sans-serif;
   --serif: 'Cormorant Garamond', 'Times New Roman', Georgia, serif;
   --sans: 'Noto Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
@@ -107,8 +107,8 @@ body {
 }
 .bpm-num { display: flex; flex-direction: column; align-items: flex-end; line-height: 1; }
 .bpm-num .digits {
-  font-family: var(--mono); font-weight: 400; font-variant-numeric: tabular-nums;
-  font-size: clamp(44px, 6.2vw, 84px); letter-spacing: 0.04em; color: #ffd9df;
+  font-family: var(--mono); font-weight: 200; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+  font-size: clamp(48px, 6.4vw, 88px); letter-spacing: 0.01em; color: #ffd9df;
   text-shadow:
     0 0 calc(6px + 22px * var(--g)) rgba(255, 70, 100, calc(0.35 + 0.55 * var(--g))),
     0 0 calc(18px + 54px * var(--g)) rgba(220, 20, 60, calc(0.18 + 0.5 * var(--g)));
@@ -139,7 +139,7 @@ body {
 }
 .gauge .tick { position: absolute; left: 100%; display: flex; align-items: center; height: 0; margin-left: 14px; }
 .gauge .tick i { display: none; }
-.gauge .tick b { font: 400 10.5px/1 var(--mono); color: rgba(255, 205, 214, .5); letter-spacing: .06em; }
+.gauge .tick b { font: 300 11px/1 var(--mono); font-variant-numeric: tabular-nums; color: rgba(255, 205, 214, .5); letter-spacing: .06em; }
 .gauge .tick.is-target b { color: rgba(255, 225, 232, .85); }
 .gauge .target {
   position: absolute; left: -10px; right: -10px; height: 0; border-top: 1px solid rgba(255, 170, 190, .45);
