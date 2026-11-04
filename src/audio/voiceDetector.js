@@ -17,6 +17,7 @@ export class VoiceDetector {
     this.db = -100
     this.harmonic = 0
     this.candidate = false
+    this.level = 0
     this.mean = 0
     this.var = 0.04
     this.statRun = 0
@@ -87,6 +88,7 @@ export class VoiceDetector {
       if (this.statRun > c.stationarySec && Math.sqrt(this.var) < c.stationaryStdDb) cand = false
     } else this.statRun = 0
     this.candidate = cand
+    this.level = Math.max(0, Math.min(1, (db - thr) / c.loudRangeDb))
     if (this.candidate) { this.run += dt; this.lost = 0 }
     else { this.lost += dt; if (this.lost > (this.voicing ? c.hangoverSec : 0.12)) this.run = 0 }
     // 시작: onset 이상 이어져야 / 유지: hangover 동안

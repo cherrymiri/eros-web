@@ -87,7 +87,7 @@ export function useMic(voiceRef, settingsRef) {
       else { an.getByteTimeDomainData(u8); for (let i = 0; i < u8.length; i++) f32[i] = (u8[i] - 128) / 128 }
       det.process(f32, ctx.sampleRate, dt, settingsRef.current.gateOffset || 0)
       const v = voiceRef.current
-      v.voicing = det.voicing; v.candidate = det.candidate; v.db = det.db; v.floor = det.floor; v.harmonic = det.harmonic
+      v.voicing = det.voicing; v.candidate = det.candidate; v.db = det.db; v.floor = det.floor; v.harmonic = det.harmonic; v.level = det.level
       if (wasCal && det.calibrated) { wasCal = false; setStatus('live') }
     }
     // 그래픽이 무거워 화면 프레임이 느려져도 발성 판단은 일정한 간격으로 계속 돌도록 타이머 사용

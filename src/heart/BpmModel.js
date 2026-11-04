@@ -26,23 +26,27 @@ export class BpmModel {
     this.maxCharge = cfg.curve[cfg.curve.length - 1][0]
     this.charge = 0
     this.v = 0 // 부드럽게 다듬은 발성 여부(0~1)
+    this.run = 0 // 끊김 없이 발성한 시간
+    this.loud = 0 // 부드럽게 다듬은 음량 세기(0~1)
     this.silence = 0 // 마지막 발성 이후 경과 시간
     this.target = cfg.min // 목표 BPM
     this.bpm = cfg.min // 화면/박동에 쓰는 부드러운 BPM
     this.stage = 1
   }
 
-  reset() { this.charge = 0; this.v = 0; this.silence = 0; this.target = this.cfg.min; this.bpm = this.cfg.min; this.stage = 1 }
+  reset() { this.run = 0; this.loud = 0; this.charge = 0; this.v = 0; this.silence = 0; this.target = this.cfg.min; this.bpm = this.cfg.min; this.stage = 1 }
 
-  update(dt, voicing) {
+  // level: 0~1 (소음 기준 대비 얼마나 크게 냈는가). 순간값이 아니라 천천히 평균을 내서 쓰므로 박수·고함 한 번으로는 튀지 않음
+  update(dt, voicing, level = 0.4) {
     const c = this.cfg
     dt = clamp(dt, 0, 0.5)
     this.v += ((voicing ? 1 : 0) - this.v) * (1 - Math.exp(-dt / c.riseSmooth))
-    if (voicing) this.silence = 0
-    else this.silence += dt
+    if (voicing) { this.silence = 0; this.run += dt; this.loud += (level - this.loud) * (1 - Math.exp(-dt / 0.8)) }
+    else { this.silence += dt; if (this.silence > 0.6) this.run = 0 }
 
     if (voicing) {
-      this.charge += c.riseRate * this.v * dt
+      const mult = 1 + c.loudBoost * this.loud + c.steadyBoost * clamp(this.run / c.steadySec, 0, 1)
+      this.charge += c.riseRate * mult * this.v * dt
     } else if (this.silence > c.breathGrace) {
       const s = this.silence - c.breathGrace
       const k = this.silence <= c.shortPause ? 0 : clamp((this.silence - c.shortPause) / c.longDecayRamp, 0, 1)

@@ -49,7 +49,7 @@ function BackLight({ fxRef }) {
     const m = mesh.current
     if (!m) return
     const f = fxRef.current
-    const k = 1.2 * (1 + 0.12 * f.bpmN + 0.22 * f.climax * f.beat)
+    const k = 1.2 * (1 + 0.12 * f.bpmN + 0.22 * f.climax * f.beat + 0.18 * (f.boost || 0))
     mat.color.setRGB(k, k, k)
     const D = 20
     camera.getWorldDirection(fwd)
@@ -105,7 +105,9 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
 
   useFrame(({ scene: sc, camera }, dt) => {
     const bpm = bpmRef.current.bpm
-    const o = engine.update(dt, bpm, settingsRef.current.strength ?? 1)
+    // 도달 보상: 문구가 나타나는 순간 박동과 붉은 빛을 잠깐(약 2초) 더 강조
+    const boost = Math.max(0, 1 - (performance.now() - (bpmRef.current.boostT || -1e9)) / 2200) ** 2
+    const o = engine.update(dt, bpm, (settingsRef.current.strength ?? 1) * (1 + 0.22 * boost))
     if (typeof window.__forcePulse === 'number') { // 개발용: 특정 변형량을 고정해 형태 확인
       const p = window.__forcePulse
       o.scale = p * 0.8; o.inflate = p * 0.2 * 0.35; o.glow = Math.min(1, Math.max(0, p / 0.165))
@@ -115,9 +117,9 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
     // BPM이 높을수록 전체 빛이 조금씩 밝아지고, 145 이상에서는 박동마다 빛이 살짝 출렁임
     const climax = Math.min(1, Math.max(0, (bpm - 120) / 40))
     const fx = fxRef.current
-    fx.beat = o.beat; fx.bpmN = o.bpmN; fx.climax = climax
+    fx.boost = boost; fx.beat = o.beat; fx.bpmN = o.bpmN; fx.climax = climax
     material.envMapIntensity = 1.25 + 0.25 * o.bpmN + 0.35 * climax * o.beat
-    if (glowRef.current) glowRef.current.style.opacity = Math.min(1, 0.18 + 0.35 * o.bpmN + o.glow * (0.45 + 0.4 * o.bpmN)).toFixed(3)
+    if (glowRef.current) glowRef.current.style.opacity = Math.min(1, 0.18 + 0.35 * o.bpmN + 0.25 * boost + o.glow * (0.45 + 0.4 * o.bpmN)).toFixed(3)
     const h = hudRef.current
     h.pulse = o.pulse; h.scale = o.scale; h.bpm = bpm
 

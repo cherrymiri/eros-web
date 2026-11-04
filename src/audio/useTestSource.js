@@ -14,7 +14,7 @@ export function useTestSource(voiceRef, enabled, auto, holdRef) {
     window.addEventListener('keyup', ku)
     const t0 = performance.now()
     const seq = [ // [길이(초), 발성 여부]
-      [10, 1], [1.5, 0], [10, 1], [2, 0], [10, 1], [1.5, 0], [12, 1], [2.5, 0], [14, 1], [1.5, 0], [14, 1], [3, 0], [16, 1], [30, 0],
+      [6, 1], [1.5, 0], [6, 1], [2, 0], [6, 1], [1.5, 0], [6, 1], [2.5, 0], [8, 1], [30, 0],
     ]
     const total = seq.reduce((a, s) => a + s[0], 0)
     const tick = () => {
@@ -28,6 +28,7 @@ export function useTestSource(voiceRef, enabled, auto, holdRef) {
       if (space) v = 1
       voiceRef.current.voicing = !!v
       voiceRef.current.candidate = !!v
+      voiceRef.current.level = 0.5
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

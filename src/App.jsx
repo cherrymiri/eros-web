@@ -47,6 +47,28 @@ export default function App() {
   useTestSource(voiceRef, testOn && !live && !busy, auto, holdRef)
   const stage = useBpm(voiceRef, bpmRef)
 
+  // 도달 보상: 120/145 BPM에 '처음' 도달했을 때 한 번만 큰 문구를 띄움.
+  // 한 번 띄운 뒤에는 BPM이 충분히 내려가기(105/130 미만) 전까지 다시 띄우지 않아 경계에서 반복 팝업이 없음.
+  const [reward, setReward] = useState(null)
+  const armed = useRef({ 2: true, 3: true })
+  const prevStage = useRef(1)
+  useEffect(() => {
+    const id = setInterval(() => {
+      const b = bpmRef.current.bpm
+      if (b < 105) armed.current[2] = true
+      if (b < 130) armed.current[3] = true
+    }, 250)
+    return () => clearInterval(id)
+  }, [])
+  useEffect(() => {
+    if (stage > prevStage.current && armed.current[stage]) {
+      armed.current[stage] = false
+      bpmRef.current.boostT = performance.now()
+      setReward({ id: Date.now(), stage })
+    }
+    prevStage.current = stage
+  }, [stage])
+
   const update = useCallback((patch) => {
     setSettings((s) => {
       const n = { ...s, ...patch }
@@ -99,7 +121,7 @@ export default function App() {
       <Readout bpmRef={bpmRef} stage={stage} />
 
       <main className="ui">
-        <Phrase stage={stage} />
+        <Phrase stage={stage} reward={reward} />
         <div className="guide">
           <strong>“아—” 하고 소리를 길게 내보세요.</strong>
           <span>잠시 숨을 쉬어도 괜찮아요. 다시 이어서 소리를 내면 박동이 계속 이어집니다.</span>
