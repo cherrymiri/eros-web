@@ -6,6 +6,8 @@ import { useTestSource } from './audio/useTestSource'
 import Readout from './components/Readout'
 import Phrase from './components/Phrase'
 import { useBpm } from './heart/useBpm'
+import Opening from './components/Opening'
+import { enterFullscreen, fsSupported, isFullscreen, onFullscreenChange } from './fullscreen'
 
 const DEFAULTS = { gateOffset: 0, strength: 1, noiseSuppression: false }
 function loadSettings() {
@@ -46,6 +48,14 @@ export default function App() {
   const busy = mic.status === 'requesting' || mic.status === 'calibrating'
   useTestSource(voiceRef, testOn && !live && !busy, auto, holdRef)
   const stage = useBpm(voiceRef, bpmRef)
+
+  // 오프닝 → 체험 전환. ?test/?dev(개발·시험용)에서는 오프닝을 건너뜀
+  const skipOpening = /[?&](test|dev)\b/.test(location.search) && !/[?&]opening\b/.test(location.search)
+  const [phase, setPhase] = useState(skipOpening ? 'live' : 'opening') // opening | closing | live
+  const [fs, setFs] = useState(isFullscreen())
+  const fsOk = fsSupported()
+  const started = useRef(skipOpening)
+  useEffect(() => onFullscreenChange(() => setFs(isFullscreen())), [])
 
   // 도달 보상: 120/145 BPM에 '처음' 도달했을 때 한 번만 큰 문구를 띄움.
   // 한 번 띄운 뒤에는 BPM이 충분히 내려가기(105/130 미만) 전까지 다시 띄우지 않아 경계에서 반복 팝업이 없음.
@@ -97,6 +107,30 @@ export default function App() {
     return () => cancelAnimationFrame(raf)
   }, [panel])
 
+  // 모든 체험 상태 초기화 (BPM 80, 문구·효과 제거). 전체화면은 건드리지 않음
+  const resetExperience = useCallback(() => {
+    bpmRef.current.resetReq = true
+    bpmRef.current.boostT = -1e9
+    armed.current = { 2: true, 3: true }
+    prevStage.current = 1
+    setReward(null)
+  }, [])
+  // 오프닝의 시작 버튼: 클릭 이벤트 안에서 전체화면 → 마이크 요청을 동시에 시작하고 바로 전환
+  const beginFromOpening = useCallback(() => {
+    enterFullscreen() // 실패/미지원이어도 계속 진행
+    started.current = true
+    resetExperience()
+    mic.start() // 거부돼도 안내와 80 BPM 기본 박동으로 화면은 계속 동작
+    setPhase('closing')
+    setTimeout(() => setPhase('live'), 950)
+  }, [mic, resetExperience])
+  // 체험 화면의 '다시 체험하기'/'다시 시도': 오프닝 없이 초기화 후 다시 시작, 전체화면 유지
+  const restart = useCallback(() => {
+    resetExperience()
+    if (fsOk && !isFullscreen()) enterFullscreen()
+    mic.start()
+  }, [mic, resetExperience, fsOk])
+
   const msg = MESSAGES[mic.status]
   const testing = testOn && !live && !busy
   let state = 'off'
@@ -107,7 +141,7 @@ export default function App() {
   else if (testing) { state = voiced ? 'voice' : 'on'; stateText = voiced ? '테스트 · 발성 중' : '테스트 모드' }
 
   return (
-    <div className="app">
+    <div className={`app phase-${phase}`}>
       <div className="stage">
         <Scene bpmRef={bpmRef} settingsRef={settingsRef} glowRef={glowRef} hudRef={hudRef} phaseLive={live || testing} />
         <div className="glow" ref={glowRef} aria-hidden="true" />
@@ -142,12 +176,21 @@ export default function App() {
         {live ? (
           <button className="btn ghost" onClick={mic.stop}>체험 종료</button>
         ) : (
-          <button className="btn" onClick={mic.start} disabled={busy}>
-            {busy ? '준비 중…' : msg ? '다시 시도' : '체험 시작'}
+          <button className="btn" onClick={restart} disabled={busy}>
+            {busy ? '준비 중…' : msg ? '다시 시도' : started.current ? '다시 체험하기' : '체험 시작'}
           </button>
         )}
         <p className="privacy">소리는 이 기기 안에서만 분석하며, 녹음·저장·전송하지 않습니다.</p>
       </main>
+
+      {phase !== 'opening' && fsOk && !fs && (
+        <button className="fsbtn" onClick={() => enterFullscreen()} aria-label="전체화면" title="전체화면">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          </svg>
+        </button>
+      )}
+      {phase !== 'live' && <Opening onStart={beginFromOpening} closing={phase === 'closing'} />}
 
       <button className="gear" onClick={() => setPanel((p) => !p)} aria-expanded={panel} aria-label="설정">
         {panel ? '닫기' : '설정'}

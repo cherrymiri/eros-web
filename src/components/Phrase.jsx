@@ -14,7 +14,14 @@ export default function Phrase({ stage, reward }) {
 
   useEffect(() => {
     const el = wrap.current
-    if (!el || !reward || reward.id === lastId.current) return
+    if (!el) return
+    if (!reward) { // 초기화: 진행 중인 문구 연출 제거
+      lastId.current = 0
+      if (anim.current) { anim.current.cancel(); anim.current = null }
+      el.classList.remove('intro')
+      return
+    }
+    if (reward.id === lastId.current) return
     lastId.current = reward.id
     if (anim.current) anim.current.cancel()
     const r = el.getBoundingClientRect()
