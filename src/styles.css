@@ -260,10 +260,14 @@ body {
 }
 .fsbtn:hover { color: #ffe3e8; border-color: rgba(255, 170, 190, .55); background: rgba(120, 10, 35, .35); }
 
-/* ───────── 엔딩 (타이포그래피만으로 구성: 평면 블랙, 장식·그라데이션·글로우 없음) ───────── */
+/* ───────── 엔딩 (Apple Music Sing식 강조 원리: 핵심 한 줄은 또렷하게, 나머지 줄은 뒤로 물러남) ───────── */
 .ending {
-  --u: clamp(17px, 3.5vh, 40px); /* 모든 간격·크기의 기준 단위 */
-  position: fixed; inset: 0; z-index: 55; background: #000; color: #e6dcd9; overflow: auto;
+  --u: clamp(18px, 3.7vh, 42px); /* 모든 크기·간격의 기준 단위 */
+  position: fixed; inset: 0; z-index: 55; overflow: auto; color: #f1e6e6;
+  background:
+    radial-gradient(60% 48% at 50% 46%, rgba(120, 14, 40, .30) 0%, rgba(120, 14, 40, 0) 100%), /* 아주 은은한 버건디 번짐 */
+    radial-gradient(45% 40% at 88% 96%, rgba(90, 10, 30, .22) 0%, rgba(90, 10, 30, 0) 100%),
+    #000;
   display: flex; align-items: center; justify-content: center; animation: enFade .9s ease both;
 }
 @keyframes enFade { from { opacity: 0; } to { opacity: 1; } }
@@ -271,26 +275,26 @@ body {
 .en-lyrics {
   display: flex; flex-direction: column; align-items: center; margin: 0;
   font-family: 'Pretendard Variable', Pretendard, 'Noto Sans KR', sans-serif; font-size: var(--u);
-  font-weight: 300; line-height: 1.34; letter-spacing: -0.012em; word-break: keep-all; font-feature-settings: 'kern' 1;
+  font-weight: 600; line-height: 1.26; letter-spacing: -0.026em; word-break: keep-all; font-feature-settings: 'kern' 1;
 }
-.ln { display: block; overflow: hidden; padding: .1em .12em; } /* 마스크: 이 영역 밖의 글자는 가려짐 */
+.ln { display: block; overflow: hidden; padding: .09em .14em; } /* 마스크: 이 영역 밖의 글자는 가려짐 */
 .ln .tx { display: block; transform: translateY(112%); opacity: 0; animation: maskUp .85s cubic-bezier(.16,.84,.24,1) forwards; }
 @keyframes maskUp { to { transform: translateY(0); opacity: 1; } }
-/* 상단 4줄: 하나의 밀도 있는 블록 (같은 굵기·색, 한 단계 낮춘 밝기) */
-.ln.ln0, .ln.ln1, .ln.ln2, .ln.ln3 { color: #cfc3c0; }
-.ln.ln3 { letter-spacing: -0.02em; }
-/* 마지막 줄: 크기는 소폭(+14%)만, 굵기와 루비 컬러로 시선을 모음 */
-.ln.last { margin-top: calc(var(--u) * .85); font-size: 1.14em; font-weight: 600; line-height: 1.2; letter-spacing: -0.028em; color: #e5435f; }
+/* 뒤로 물러난 4줄: 같은 굵기·정렬, 명도만 낮춤 (블러는 거의 없이 읽을 수는 있게) */
+.ln.ln0, .ln.ln1, .ln.ln2, .ln.ln3 { color: rgba(240, 226, 226, .36); }
+.ln.ln0 .tx, .ln.ln1 .tx, .ln.ln2 .tx, .ln.ln3 .tx { filter: blur(.35px); }
+/* 핵심 한 줄: 크기는 소폭, 굵기·명도·절제된 로즈 컬러로 또렷하게 */
+.ln.last { margin-top: calc(var(--u) * .62); font-size: 1.22em; font-weight: 700; line-height: 1.15; letter-spacing: -0.034em; color: #ee95a5; }
 .en-credit {
-  margin: calc(var(--u) * 2.5) 0 0; font-size: max(11px, calc(var(--u) * .4)); font-weight: 400; letter-spacing: .16em; padding-left: .16em;
-  color: #857a77; opacity: 0; animation: enFade .8s ease 1.5s forwards;
+  margin: calc(var(--u) * 2.3) 0 0; font-size: max(10.5px, calc(var(--u) * .36)); font-weight: 400; letter-spacing: .12em; padding-left: .12em;
+  color: rgba(240, 226, 226, .3); opacity: 0; animation: enFade .8s ease 1.5s forwards;
 }
 .en-btn {
-  margin-top: calc(var(--u) * 2.2); padding: calc(var(--u) * .62) calc(var(--u) * 1.9); cursor: pointer; border-radius: 2px;
-  font: 400 max(13px, calc(var(--u) * .46))/1 'Pretendard Variable', Pretendard, 'Noto Sans KR', sans-serif; letter-spacing: .3em; padding-left: calc(var(--u) * 1.9 + .3em);
-  color: #e6dcd9; background: transparent; border: 1px solid rgba(229, 67, 95, .8); opacity: 0; animation: enFade .8s ease 1.7s forwards;
-  transition: background .3s, border-color .3s, color .3s;
+  margin-top: calc(var(--u) * 1.7); padding: calc(var(--u) * .5) calc(var(--u) * 1.45); cursor: pointer; border-radius: 999px;
+  font: 500 max(13px, calc(var(--u) * .42))/1 'Pretendard Variable', Pretendard, 'Noto Sans KR', sans-serif; letter-spacing: .06em;
+  color: rgba(250, 236, 238, .88); background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .13);
+  opacity: 0; animation: enFade .8s ease 1.7s forwards; transition: background .3s, border-color .3s, color .3s;
 }
-.en-btn:hover { background: #e5435f; border-color: #e5435f; color: #0a0204; }
-.en-btn:focus-visible { outline: 1px solid #e5435f; outline-offset: 5px; }
+.en-btn:hover { background: rgba(190, 40, 72, .32); border-color: rgba(243, 169, 182, .5); color: #fff; }
+.en-btn:focus-visible { outline: 1px solid #f3a9b6; outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) { .ln .tx { animation-duration: .01s; } }
