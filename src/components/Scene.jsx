@@ -106,8 +106,10 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
   useFrame(({ scene: sc, camera }, dt) => {
     const bpm = bpmRef.current.bpm
     // 도달 보상: 문구가 나타나는 순간 박동과 붉은 빛을 잠깐(약 2초) 더 강조
-    const boost = Math.max(0, 1 - (performance.now() - (bpmRef.current.boostT || -1e9)) / 2200) ** 2
-    const o = engine.update(dt, bpm, (settingsRef.current.strength ?? 1) * (1 + 0.22 * boost))
+    const now = performance.now()
+    const peak = now < (bpmRef.current.climaxUntil || 0) // 160 BPM 도달 직후 약 2초: 박동·빛 최대
+    const boost = peak ? 1 : Math.max(0, 1 - (now - (bpmRef.current.boostT || -1e9)) / 2200) ** 2
+    const o = engine.update(dt, bpm, (settingsRef.current.strength ?? 1) * (1 + (peak ? 0.2 : 0.22 * boost)))
     if (typeof window.__forcePulse === 'number') { // 개발용: 특정 변형량을 고정해 형태 확인
       const p = window.__forcePulse
       o.scale = p * 0.8; o.inflate = p * 0.2 * 0.35; o.glow = Math.min(1, Math.max(0, p / 0.165))
@@ -119,7 +121,7 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
     const fx = fxRef.current
     fx.boost = boost; fx.beat = o.beat; fx.bpmN = o.bpmN; fx.climax = climax
     material.envMapIntensity = 1.25 + 0.25 * o.bpmN + 0.35 * climax * o.beat
-    if (glowRef.current) glowRef.current.style.opacity = Math.min(1, 0.18 + 0.35 * o.bpmN + 0.25 * boost + o.glow * (0.45 + 0.4 * o.bpmN)).toFixed(3)
+    if (glowRef.current) glowRef.current.style.opacity = Math.min(1, 0.18 + 0.35 * o.bpmN + 0.25 * boost + (peak ? 0.2 : 0) + o.glow * (0.45 + 0.4 * o.bpmN)).toFixed(3)
     const h = hudRef.current
     h.pulse = o.pulse; h.scale = o.scale; h.bpm = bpm
 
@@ -170,6 +172,7 @@ function Rig({ phaseLive }) {
     camera.updateProjectionMatrix()
   }, [size.width > size.height, camera]) // 가로/세로가 바뀔 때만 초기화 (사용자 확대 유지)
   // 오른쪽의 BPM 숫자·게이지와 겹치지 않도록 3D 장면을 왼쪽으로 살짝 옮김 (화면 오프셋만 변경, 모델은 그대로)
+  if (/[?&](dev|test)\b/.test(location.search)) window.__cam = camera
   useEffect(() => {
     const w = size.width, h = size.height
     const narrow = w < 700
@@ -190,7 +193,9 @@ function Rig({ phaseLive }) {
       enablePan={false}
       enableDamping
       dampingFactor={0.07}
-      rotateSpeed={0.7}
+      rotateSpeed={0.6}
+      minPolarAngle={Math.PI * 0.22}
+      maxPolarAngle={Math.PI * 0.78}
       zoomSpeed={0.7}
       minDistance={2.6}
       maxDistance={20}

@@ -7,6 +7,7 @@ import Readout from './components/Readout'
 import Phrase from './components/Phrase'
 import { useBpm } from './heart/useBpm'
 import Opening from './components/Opening'
+import Ending from './components/Ending'
 import { enterFullscreen, fsSupported, isFullscreen, onFullscreenChange } from './fullscreen'
 
 const DEFAULTS = { gateOffset: 0, strength: 1, noiseSuppression: false }
@@ -51,7 +52,7 @@ export default function App() {
 
   // 오프닝 → 체험 전환. ?test/?dev(개발·시험용)에서는 오프닝을 건너뜀
   const skipOpening = /[?&](test|dev)\b/.test(location.search) && !/[?&]opening\b/.test(location.search)
-  const [phase, setPhase] = useState(skipOpening ? 'live' : 'opening') // opening | closing | live
+  const [phase, setPhase] = useState(skipOpening ? 'live' : 'opening') // opening | closing | live | climax | ending
   const [fs, setFs] = useState(isFullscreen())
   const fsOk = fsSupported()
   const started = useRef(skipOpening)
@@ -107,10 +108,32 @@ export default function App() {
     return () => cancelAnimationFrame(raf)
   }, [panel])
 
+  // 160 BPM 최초 도달 → 약 2초 클라이맥스 유지 → 엔딩. (이번 체험에서 한 번만)
+  const ended = useRef(false)
+  const phaseRef = useRef(phase)
+  phaseRef.current = phase
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (phaseRef.current !== 'live' || ended.current) return
+      if (bpmRef.current.bpm >= 159.5) {
+        ended.current = true
+        const b = bpmRef.current
+        b.hold = true // 클라이맥스 동안 BPM 160 고정 (소리가 끊겨도 내려가지 않음)
+        b.climaxUntil = performance.now() + 2100
+        setPhase('climax')
+        setTimeout(() => { mic.stop(); setPhase('ending') }, 2100)
+      }
+    }, 100)
+    return () => clearInterval(id)
+  }, [mic])
+
   // 모든 체험 상태 초기화 (BPM 80, 문구·효과 제거). 전체화면은 건드리지 않음
   const resetExperience = useCallback(() => {
     bpmRef.current.resetReq = true
     bpmRef.current.boostT = -1e9
+    bpmRef.current.climaxUntil = 0
+    bpmRef.current.hold = false
+    ended.current = false
     armed.current = { 2: true, 3: true }
     prevStage.current = 1
     setReward(null)
@@ -129,6 +152,14 @@ export default function App() {
     resetExperience()
     if (fsOk && !isFullscreen()) enterFullscreen()
     mic.start()
+  }, [mic, resetExperience, fsOk])
+
+  // 엔딩의 '다시 체험하기': 오프닝으로 돌아가지 않고, 전체화면을 유지한 채 BPM 80으로 바로 재시작
+  const replay = useCallback(() => {
+    resetExperience()
+    if (fsOk && !isFullscreen()) enterFullscreen()
+    mic.start()
+    setPhase('live')
   }, [mic, resetExperience, fsOk])
 
   const msg = MESSAGES[mic.status]
@@ -190,7 +221,8 @@ export default function App() {
           </svg>
         </button>
       )}
-      {phase !== 'live' && <Opening onStart={beginFromOpening} closing={phase === 'closing'} />}
+      {phase === 'ending' && <Ending onReplay={replay} />}
+      {(phase === 'opening' || phase === 'closing') && <Opening onStart={beginFromOpening} closing={phase === 'closing'} />}
 
       <button className="gear" onClick={() => setPanel((p) => !p)} aria-expanded={panel} aria-label="설정">
         {panel ? '닫기' : '설정'}

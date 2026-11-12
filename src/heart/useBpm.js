@@ -18,7 +18,7 @@ export function useBpm(voiceRef, bpmRef) {
       last = now
       if (bpmRef.current.resetReq) { bpmRef.current.resetReq = false; m.reset(); st = 1; setStage(1) }
       const ts = typeof window.__bpmTimeScale === 'number' ? window.__bpmTimeScale : 1 // 개발용 시간 가속
-      m.update(Math.min(dt, 0.5) * ts, voiceRef.current.voicing, voiceRef.current.level ?? 0.4)
+      if (!bpmRef.current.hold) m.update(Math.min(dt, 0.5) * ts, voiceRef.current.voicing, voiceRef.current.level ?? 0.4)
       const b = bpmRef.current
       b.bpm = m.bpm; b.target = m.target; b.charge = m.charge; b.stage = m.stage; b.voicing = voiceRef.current.voicing
       if (m.stage !== st) { st = m.stage; setStage(st) }
