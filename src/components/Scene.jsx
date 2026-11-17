@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer, OrbitControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { HeartEngine } from '../heart/HeartEngine'
+import { heartSound } from '../audio/heartSound'
 import { createRubyMaterial, createBackDepthMaterial } from './rubyMaterial'
 
 const MODEL_URL = `${import.meta.env.BASE_URL}models/eros.glb`
@@ -103,6 +104,7 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
     return () => material.dispose()
   }, [mesh, material])
 
+  const lastBeat = useRef(0)
   useFrame(({ scene: sc, camera }, dt) => {
     const bpm = bpmRef.current.bpm
     // 도달 보상: 문구가 나타나는 순간 박동과 붉은 빛을 잠깐(약 2초) 더 강조
@@ -110,6 +112,10 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
     const peak = now < (bpmRef.current.climaxUntil || 0) // 160 BPM 도달 직후 약 2초: 박동·빛 최대
     const boost = peak ? 1 : Math.max(0, 1 - (now - (bpmRef.current.boostT || -1e9)) / 2200) ** 2
     const o = engine.update(dt, bpm, (settingsRef.current.strength ?? 1) * (1 + (peak ? 0.2 : 0.22 * boost)))
+    if (o.beatId !== lastBeat.current) { // 화면의 새 박동 시작과 같은 프레임에 심장박동 소리 재생
+      lastBeat.current = o.beatId
+      heartSound.beat({ bpm, t1: o.beat1, t2: o.beat2, amp: o.beatAmp })
+    }
     if (typeof window.__forcePulse === 'number') { // 개발용: 특정 변형량을 고정해 형태 확인
       const p = window.__forcePulse
       o.scale = p * 0.8; o.inflate = p * 0.2 * 0.35; o.glow = Math.min(1, Math.max(0, p / 0.165))

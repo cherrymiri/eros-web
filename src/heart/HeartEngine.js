@@ -57,7 +57,8 @@ export class HeartEngine {
     this.pulse = 0 // 스프링으로 다듬은 출력(몸통 변형 비율)
     this.vel = 0
     this.seed = 7
-    this.out = { scale: 0, inflate: 0, glow: 0, bpm: 80, bpmN: 0, pulse: 0, beat: 0 }
+    this.beatId = 0 // 박동이 시작될 때마다 1씩 증가 (사운드가 같은 박동을 같은 시점에 재생하도록)
+    this.out = { scale: 0, inflate: 0, glow: 0, bpm: 80, bpmN: 0, pulse: 0, beat: 0, beatId: 0, beat1: 0, beat2: 0, beatAmp: 0 }
   }
 
   _rand() { // 박동마다 아주 약한 불규칙성 (기계적으로 보이지 않게)
@@ -77,6 +78,14 @@ export class HeartEngine {
     if (this.time - this.lastStart >= period) {
       const amp = Math.min(ampFromBpm(bpm) * strength * (0.97 + 0.06 * this._rand()), LIMITS.hardMax)
       this.cycles.push({ t0: this.time, amp, lv: bn, period })
+      // 사운드용 박동 타이밍: 화면 박동(스프링 지연 1/w 포함)의 첫째·둘째 정점이 오는 시각(박동 시작 후 초)
+      const ts0 = Math.pow(clamp(period / 0.75, 0.5, 1), 0.7)
+      const gap0 = Math.min(0.3 * ts0, period * 0.34)
+      const lag = 1 / (34 + 8 * bn)
+      this.out.beat1 = (0.078 - 0.022 * bn) * ts0 + lag
+      this.out.beat2 = gap0 + (0.066 - 0.016 * bn) * ts0 + lag
+      this.out.beatAmp = amp
+      this.out.beatId = ++this.beatId
       // 프레임 간격에 상관없이 주기가 정확하도록 남는 시간을 이월 (너무 뒤처지면 현재 시각으로 재동기)
       this.lastStart = this.time - this.lastStart - period > 0.1 ? this.time : this.lastStart + period
       if (this.cycles.length > 3) this.cycles.shift()

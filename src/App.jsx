@@ -8,9 +8,10 @@ import Phrase from './components/Phrase'
 import { useBpm } from './heart/useBpm'
 import Opening from './components/Opening'
 import Ending from './components/Ending'
+import { heartSound } from './audio/heartSound'
 import { enterFullscreen, fsSupported, isFullscreen, onFullscreenChange } from './fullscreen'
 
-const DEFAULTS = { gateOffset: 0, strength: 1, noiseSuppression: false }
+const DEFAULTS = { gateOffset: 0, strength: 1, noiseSuppression: false, echoCancel: true, heartOn: true, heartMin: 0.12, heartMax: 0.42 }
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('eros-settings') || '{}') } } catch { return { ...DEFAULTS } }
 }
@@ -45,6 +46,7 @@ export default function App() {
 
   if (typeof window !== 'undefined' && /[?&](dev|test)\b/.test(location.search)) window.__eros = { voiceRef, bpmRef, hudRef, settingsRef }
   const mic = useMic(voiceRef, settingsRef)
+  useEffect(() => { heartSound.configure({ enabled: settings.heartOn, min: settings.heartMin, max: settings.heartMax }) }, [settings.heartOn, settings.heartMin, settings.heartMax])
   const live = mic.status === 'live'
   const busy = mic.status === 'requesting' || mic.status === 'calibrating'
   useTestSource(voiceRef, testOn && !live && !busy, auto, holdRef)
@@ -56,6 +58,12 @@ export default function App() {
   const [fs, setFs] = useState(isFullscreen())
   const fsOk = fsSupported()
   const started = useRef(skipOpening)
+  useEffect(() => { // 개발·시험 모드(오프닝 없음): 첫 클릭/터치에서 소리 허용
+    if (!skipOpening) return
+    const on = () => { heartSound.unlock(); heartSound.setActive(true) }
+    window.addEventListener('pointerdown', on, { once: true })
+    return () => window.removeEventListener('pointerdown', on)
+  }, [skipOpening])
   useEffect(() => onFullscreenChange(() => setFs(isFullscreen())), [])
 
   // 도달 보상: 120/145 BPM에 '처음' 도달했을 때 한 번만 큰 문구를 띄움.
@@ -121,7 +129,7 @@ export default function App() {
         b.hold = true // 클라이맥스 동안 BPM 160 고정 (소리가 끊겨도 내려가지 않음)
         b.climaxUntil = performance.now() + 2100
         setPhase('climax')
-        setTimeout(() => { mic.stop(); setPhase('ending') }, 2100)
+        setTimeout(() => { mic.stop(); heartSound.setActive(false); setPhase('ending') }, 2100)
       }
     }, 100)
     return () => clearInterval(id)
@@ -141,6 +149,7 @@ export default function App() {
   // 오프닝의 시작 버튼: 클릭 이벤트 안에서 전체화면 → 마이크 요청을 동시에 시작하고 바로 전환
   const beginFromOpening = useCallback(() => {
     enterFullscreen() // 실패/미지원이어도 계속 진행
+    heartSound.unlock(); heartSound.setActive(true) // 시작 버튼 클릭 안에서 소리 허용 → 80 BPM 박동 시작
     started.current = true
     resetExperience()
     mic.start() // 거부돼도 안내와 80 BPM 기본 박동으로 화면은 계속 동작
@@ -150,6 +159,7 @@ export default function App() {
   // 체험 화면의 '다시 체험하기'/'다시 시도': 오프닝 없이 초기화 후 다시 시작, 전체화면 유지
   const restart = useCallback(() => {
     resetExperience()
+    heartSound.unlock(); heartSound.setActive(true)
     if (fsOk && !isFullscreen()) enterFullscreen()
     mic.start()
   }, [mic, resetExperience, fsOk])
@@ -157,6 +167,7 @@ export default function App() {
   // 엔딩의 '다시 체험하기': 오프닝으로 돌아가지 않고, 전체화면을 유지한 채 BPM 80으로 바로 재시작
   const replay = useCallback(() => {
     resetExperience()
+    heartSound.unlock(); heartSound.setActive(true)
     if (fsOk && !isFullscreen()) enterFullscreen()
     mic.start()
     setPhase('live')
@@ -244,6 +255,24 @@ export default function App() {
           <label className="check">
             <input type="checkbox" checked={settings.noiseSuppression} onChange={(e) => update({ noiseSuppression: e.target.checked })} />
             <span>브라우저 소음 억제 — 시끄러운 전시장에서만 (다음 시작부터)</span>
+          </label>
+          <label>
+            <span>심장박동 음량 · 최소(80 BPM) <em>{Math.round(settings.heartMin * 100)}</em></span>
+            <input type="range" min="0" max="60" step="1" value={Math.round(settings.heartMin * 100)}
+              onChange={(e) => update({ heartMin: +e.target.value / 100, heartMax: Math.max(settings.heartMax, +e.target.value / 100) })} />
+          </label>
+          <label>
+            <span>심장박동 음량 · 최대(160 BPM) <em>{Math.round(settings.heartMax * 100)}</em></span>
+            <input type="range" min="0" max="60" step="1" value={Math.round(settings.heartMax * 100)}
+              onChange={(e) => update({ heartMax: +e.target.value / 100, heartMin: Math.min(settings.heartMin, +e.target.value / 100) })} />
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={settings.heartOn} onChange={(e) => update({ heartOn: e.target.checked })} />
+            <span>심장박동 소리 켜기</span>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={settings.echoCancel} onChange={(e) => update({ echoCancel: e.target.checked })} />
+            <span>에코 제거(심장박동이 마이크에 들어가는 것 방지) — 다음 시작부터</span>
           </label>
           <small>막대가 붉게 켜질 때 목소리로 인식됩니다. 주변 소음에도 인식되면 ‘소음 기준’을 올리고, 작은 목소리를 놓치면 낮춰 주세요. BPM은 소리의 크기가 아니라 소리를 이어 낸 시간으로 결정됩니다.</small>
           <div className="row">

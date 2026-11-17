@@ -42,7 +42,7 @@ export function useMic(voiceRef, settingsRef) {
       // 자동 게인(AGC)은 끄고(작은 소리가 갑자기 커지는 것 방지), 브라우저의 소음 억제는 설정에 따라 사용
       const s = settingsRef.current
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: s.noiseSuppression === true, autoGainControl: false },
+        audio: { echoCancellation: s.echoCancel !== false, noiseSuppression: s.noiseSuppression === true, autoGainControl: false },
       })
     } catch (e) {
       const n = e && e.name
@@ -62,7 +62,10 @@ export function useMic(voiceRef, settingsRef) {
     const an = ctx.createAnalyser()
     an.fftSize = 2048
     an.smoothingTimeConstant = 0
-    src.connect(an) // destination에는 연결하지 않음 (재생/하울링 없음)
+    // 심장박동 소리(저음)가 마이크로 되먹임되어 BPM이 오르지 않도록: 브라우저 에코 제거 + 110Hz 이하 차단
+    const hp = ctx.createBiquadFilter()
+    hp.type = 'highpass'; hp.frequency.value = 110; hp.Q.value = 0.7
+    src.connect(hp); hp.connect(an) // destination에는 연결하지 않음 (재생/하울링 없음)
     res.current.stream = stream
     res.current.ctx = ctx
     stream.getAudioTracks().forEach((t) => (t.onended = () => { cleanup(); setStatus('error') }))
