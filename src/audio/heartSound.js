@@ -148,7 +148,7 @@ class HeartSound {
   //          (엔딩 순간 화면 전환·마이크 종료와 겹쳐도 소리가 끊기지 않음)
   _buildEnding(ctx, dest, t0) {
     const out = ctx.createGain()
-    out.gain.value = 0.3
+    out.gain.value = 0.12 // 박동과 비슷한 크기로 (예전 0.3 → 약 8dB 낮춤: 큰 스피커에선 박동보다 살짝 작고, 노트북에선 살짝 큼)
     const lp = ctx.createBiquadFilter()
     lp.type = 'lowpass'; lp.frequency.value = 4500
     const len = Math.floor(ctx.sampleRate * 1.2)
