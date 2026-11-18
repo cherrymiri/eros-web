@@ -64,14 +64,15 @@ body {
 .privacy { font-size: 11px; color: #7a716c; letter-spacing: 0.04em; max-width: 360px; }
 
 .gear {
-  position: absolute; right: max(16px, env(safe-area-inset-right)); top: max(20px, env(safe-area-inset-top));
+  /* 통합 갤러리의 전체화면 버튼(오른쪽 위)과 겹치지 않도록 그 아래에 배치 */
+  position: absolute; right: max(16px, env(safe-area-inset-right)); top: max(76px, calc(env(safe-area-inset-top) + 56px));
   font: inherit; font-size: 12px; letter-spacing: 0.14em; color: var(--muted);
   background: none; border: none; padding: 8px 6px; cursor: pointer;
 }
 .gear:hover { color: var(--ruby-deep); }
 
 .panel {
-  position: absolute; right: max(14px, env(safe-area-inset-right)); top: calc(max(20px, env(safe-area-inset-top)) + 38px);
+  position: absolute; right: max(14px, env(safe-area-inset-right)); top: calc(max(76px, calc(env(safe-area-inset-top) + 56px)) + 38px);
   width: min(320px, calc(100vw - 28px)); padding: 18px 18px 16px; border-radius: 16px;
   background: rgba(18, 14, 14, 0.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, .10); box-shadow: 0 10px 40px rgba(0, 0, 0, .6);
