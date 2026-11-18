@@ -129,7 +129,8 @@ export default function App() {
         b.hold = true // 클라이맥스 동안 BPM 160 고정 (소리가 끊겨도 내려가지 않음)
         b.climaxUntil = performance.now() + 2100
         setPhase('climax')
-        setTimeout(() => { mic.stop(); heartSound.setActive(false); setPhase('ending') }, 2100)
+        // 엔딩에서도 심박 160의 두근거림은 계속 이어지고(BPM 160 고정 유지), 진입 순간 짧은 효과음
+        setTimeout(() => { mic.stop(); heartSound.ending(); setPhase('ending') }, 2100)
       }
     }, 100)
     return () => clearInterval(id)

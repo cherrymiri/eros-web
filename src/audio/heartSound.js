@@ -56,6 +56,7 @@ class HeartSound {
         comp.attack.value = 0.003
         comp.release.value = 0.12
         filter.connect(master); master.connect(comp); comp.connect(ctx.destination)
+        this.comp = comp
         // 짧은 백색소음 버퍼 (타격감용)
         const len = Math.floor(ctx.sampleRate * 0.12)
         const buf = ctx.createBuffer(1, len, ctx.sampleRate)
@@ -138,6 +139,34 @@ class HeartSound {
     ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.06)
     n.connect(nf); nf.connect(ng); ng.connect(out)
     n.start(t); n.stop(t + 0.1)
+  }
+
+  // 엔딩 진입 효과음: 짧고 맑은 '디링—' (유리 같은 두 음이 살짝 어긋나 울리고 부드럽게 사라짐).
+  // 심장박동 저음 필터를 거치지 않고 바로 출력. 심장박동 소리 설정이 꺼져 있으면 울리지 않음.
+  ending() {
+    const ctx = this.ctx
+    if (!ctx || !this.enabled || !this.comp) return
+    this._resume()
+    const t0 = ctx.currentTime + 0.02
+    const out = ctx.createGain()
+    out.gain.value = 0.26
+    const lp = ctx.createBiquadFilter()
+    lp.type = 'lowpass'; lp.frequency.value = 4200
+    out.connect(lp); lp.connect(this.comp)
+    const bell = (f, at, g, dur) => {
+      const t = t0 + at
+      const car = ctx.createOscillator(), mod = ctx.createOscillator(), mg = ctx.createGain(), vg = ctx.createGain()
+      car.frequency.value = f; mod.frequency.value = f * 3.5
+      mg.gain.setValueAtTime(f * 1.6, t); mg.gain.exponentialRampToValueAtTime(f * 0.05, t + dur * 0.6)
+      vg.gain.setValueAtTime(0.0001, t)
+      vg.gain.exponentialRampToValueAtTime(g, t + 0.008)
+      vg.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+      mod.connect(mg); mg.connect(car.frequency); car.connect(vg); vg.connect(out)
+      car.start(t); mod.start(t); car.stop(t + dur + 0.05); mod.stop(t + dur + 0.05)
+    }
+    bell(587.33, 0, 0.55, 1.6)   // D5
+    bell(880.0, 0.07, 0.42, 1.8) // A5
+    bell(1174.66, 0.14, 0.22, 1.4) // D6 (아주 작게)
   }
 }
 
