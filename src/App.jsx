@@ -135,7 +135,9 @@ export default function App() {
         b.climaxUntil = performance.now() + 2100
         setPhase('climax')
         // 엔딩에서도 심박 160의 두근거림은 계속 이어지고(BPM 160 고정 유지), 진입 순간 짧은 효과음
-        setTimeout(() => { mic.stop(); heartSound.ending(); setPhase('ending') }, 2100)
+        // 마이크는 엔딩 동안 끄지 않음: 크롬은 에코 제거용 마이크를 끄는 순간 스피커 출력 방식을 바꾸면서 소리가 '툭' 끊김.
+        // (엔딩 중 입력은 BPM 160 고정으로 무시되고, '다시 체험하기'에서 새로 시작하며 정리됨)
+        setTimeout(() => { heartSound.ending(); setPhase('ending') }, 2100)
       }
     }, 100)
     return () => clearInterval(id)
