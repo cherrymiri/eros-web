@@ -11,9 +11,14 @@ import Ending from './components/Ending'
 import { heartSound } from './audio/heartSound'
 import { enterFullscreen, fsSupported, isFullscreen, onFullscreenChange } from './fullscreen'
 
-const DEFAULTS = { gateOffset: 0, strength: 1, noiseSuppression: false, echoCancel: true, heartOn: true, heartMin: 0.12, heartMax: 0.42 }
+const DEFAULTS = { gateOffset: -4, strength: 1, noiseSuppression: false, echoCancel: true, heartOn: true, heartMin: 0.12, heartMax: 0.42 }
 function loadSettings() {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('eros-settings') || '{}') } } catch { return { ...DEFAULTS } }
+  try {
+    const saved = JSON.parse(localStorage.getItem('eros-settings') || '{}')
+    // 전시용 기본값 변경(소음 기준 최소 -4 dB)을 이미 저장된 설정에도 한 번만 적용. 이후 직접 바꾼 값은 유지
+    if (!localStorage.getItem('eros-gate-v2')) { delete saved.gateOffset; localStorage.setItem('eros-gate-v2', '1') }
+    return { ...DEFAULTS, ...saved }
+  } catch { return { ...DEFAULTS } }
 }
 
 const MESSAGES = {
