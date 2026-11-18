@@ -91,9 +91,9 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
   const { mesh, center, pivot } = useMemo(() => {
     let mesh
     scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o })
-    mesh.geometry.computeBoundingBox()
-    const bb = mesh.geometry.boundingBox
-    const center = bb.getCenter(new THREE.Vector3())
+    // 확성기 전체(모든 메시·노드 변환 포함)의 실제 중심 = 화면 중앙에 올 점이자 회전 축
+    scene.updateMatrixWorld(true)
+    const center = new THREE.Box3().setFromObject(scene).getCenter(new THREE.Vector3())
     // 박동의 중심: 심장 모티프 몸통 부근 (Blender 좌표 (0.55, 0, 0.1) -> glTF (0.55, 0.1, 0))
     const pivot = new THREE.Vector3(0.5, 0.05, 0)
     return { mesh, center, pivot }
@@ -191,7 +191,7 @@ function Rig({ phaseLive }) {
   useEffect(() => {
     const w = size.width, h = size.height
     const narrow = w < 700
-    const shift = narrow ? Math.min(52, w * 0.13) : Math.min(w * 0.1, 150)
+    const shift = narrow ? Math.min(52, w * 0.13) : 0 // PC: 오브제를 화면 정중앙에 (회전 축도 정중앙)
     camera.setViewOffset(w, h, shift, narrow ? -4 : -h * 0.03, w, h) // y: 장면을 살짝 위로 (문구와 겹침 방지)
     camera.updateProjectionMatrix()
     return () => { camera.clearViewOffset(); camera.updateProjectionMatrix() }
