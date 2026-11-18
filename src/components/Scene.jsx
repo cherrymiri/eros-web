@@ -79,6 +79,7 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
   const material = useMemo(() => createRubyMaterial(), [])
   const group = useRef()
   const spin = useRef(0) // 현재 회전 속도(rad/s)
+  const lastVoice = useRef(-1e9)
   const turn = useRef() // 회전 전용 그룹: 화면 중앙(카메라가 바라보는 점)을 축으로 돎
   const backMat = useMemo(() => createBackDepthMaterial(material.userData.uInflate), [material])
   const backRT = useMemo(() => {
@@ -125,8 +126,10 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
     if (group.current) group.current.scale.setScalar(1 + o.scale)
     // 소리를 내는 동안(심박이 오르는 동안) 오브제가 천천히 반시계 방향으로 돌며 심장 실루엣의 확성기를 보여줌.
     // 소리를 멈추면 부드럽게 감속해 그 자리에 멈춤. (약 18초에 한 바퀴)
-    const want = bpmRef.current.voicing && !bpmRef.current.hold ? 0.35 : 0
-    spin.current += (want - spin.current) * (1 - Math.exp(-dt * 1.5))
+    // 목소리 감지는 숨·음절 사이에서 잠깐씩 끊기므로, 마지막 감지 후 1.5초까지는 계속 도는 것으로 봄 (중간에 멈칫하지 않게)
+    if (bpmRef.current.voicing) lastVoice.current = now
+    const want = !bpmRef.current.hold && now - lastVoice.current < 1500 ? 0.35 : 0
+    spin.current += (want - spin.current) * (1 - Math.exp(-dt * (want ? 1.5 : 0.8)))
     if (turn.current && spin.current > 0.0005) turn.current.rotation.y += spin.current * dt
     material.userData.uInflate.value = o.inflate
     // BPM이 높을수록 전체 빛이 조금씩 밝아지고, 145 이상에서는 박동마다 빛이 살짝 출렁임
