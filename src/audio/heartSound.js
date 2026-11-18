@@ -68,6 +68,7 @@ class HeartSound {
         ctx.onstatechange = () => { if (ctx.state === 'interrupted' || ctx.state === 'suspended') this.needResume = true }
       }
       this._resume()
+      setTimeout(() => this._prepareEnding(), 300) // 엔딩 효과음을 미리 만들어 둠 (체험 초반, 화면이 한가할 때)
       return true
     } catch { return false }
   }
@@ -142,32 +143,25 @@ class HeartSound {
   }
 
   // 엔딩 진입 효과음 (N: 긴장에서 풀림 · 현악)
-  // 현악 화음이 잠깐 긴장(Dsus4)을 쥐고 있다가 '두근' 하고 밝은 D(add9)로 풀리며 약 1.5초에 사라짐.
-  // 직접 합성한 소리(외부 음원 없음). 심장박동 저음 필터를 거치지 않고 바로 출력. 심장박동 소리가 꺼져 있으면 울리지 않음.
-  ending() {
-    const ctx = this.ctx
-    if (!ctx || !this.enabled || !this.comp) return
-    this._resume()
-    const t0 = ctx.currentTime + 0.02
+  // 현악 화음이 잠깐 긴장(Dsus4)을 쥐고 있다가 '두근' 하고 밝은 D(add9)로 풀리며 약 1.5초에 사라짐. 직접 합성(외부 음원 없음).
+  // 렉 방지: 체험 시작 때 미리 한 번 녹음해(OfflineAudioContext) 버퍼로 만들어 두고, 엔딩에서는 그 버퍼 하나만 재생.
+  //          (엔딩 순간 화면 전환·마이크 종료와 겹쳐도 소리가 끊기지 않음)
+  _buildEnding(ctx, dest, t0) {
     const out = ctx.createGain()
     out.gain.value = 0.3
     const lp = ctx.createBiquadFilter()
     lp.type = 'lowpass'; lp.frequency.value = 4500
-    // 짧은 잔향 (공간감)
-    if (!this.endVerb) {
-      const len = Math.floor(ctx.sampleRate * 1.2)
-      const ir = ctx.createBuffer(2, len, ctx.sampleRate)
-      for (let c = 0; c < 2; c++) {
-        const d = ir.getChannelData(c)
-        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3) * 0.5
-      }
-      this.endVerb = ir
+    const len = Math.floor(ctx.sampleRate * 1.2)
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate)
+    let seed = 777
+    for (let c = 0; c < 2; c++) {
+      const d = ir.getChannelData(c)
+      for (let i = 0; i < len; i++) { seed = (seed * 16807) % 2147483647; d[i] = ((seed / 2147483647) * 2 - 1) * Math.pow(1 - i / len, 3) * 0.5 }
     }
-    const verb = ctx.createConvolver(); verb.buffer = this.endVerb
+    const verb = ctx.createConvolver(); verb.buffer = ir
     const wet = ctx.createGain(); wet.gain.value = 0.35
-    out.connect(lp); lp.connect(this.comp); lp.connect(verb); verb.connect(wet); wet.connect(this.comp)
+    out.connect(lp); lp.connect(dest); lp.connect(verb); verb.connect(wet); wet.connect(dest)
     const midi = (m) => 440 * Math.pow(2, (m - 69) / 12)
-    // 화음 하나: 음마다 기음 + 2배음 + 3배음, 살짝 떨리는 비브라토
     const chord = (notes, at, dur, att, rel, g) => {
       const t = t0 + at
       const vg = ctx.createGain()
@@ -193,6 +187,36 @@ class HeartSound {
     }
     chord([50, 55, 57, 62], 0, 0.42, 0.08, 6, 0.9)        // 긴장 (Dsus4)
     chord([50, 54, 57, 62, 66], 0.36, 1.4, 0.06, 2, 1.0)  // 풀림 (D)
+  }
+
+  _prepareEnding() {
+    if (this.endBuf || this.endPreparing || !this.ctx) return
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext
+    if (!OAC) return
+    this.endPreparing = true
+    try {
+      const sr = this.ctx.sampleRate
+      const off = new OAC(2, Math.ceil(sr * 2.4), sr)
+      this._buildEnding(off, off.destination, 0.01)
+      const done = (buf) => { this.endBuf = buf; this.endPreparing = false }
+      const p = off.startRendering()
+      if (p && p.then) p.then(done, () => { this.endPreparing = false })
+      else off.oncomplete = (e) => done(e.renderedBuffer)
+    } catch { this.endPreparing = false }
+  }
+
+  ending() {
+    const ctx = this.ctx
+    if (!ctx || !this.enabled || !this.comp) return
+    this._resume()
+    if (this.endBuf) {
+      const src = ctx.createBufferSource()
+      src.buffer = this.endBuf
+      src.connect(this.comp)
+      src.start(ctx.currentTime + 0.05)
+    } else {
+      this._buildEnding(ctx, this.comp, ctx.currentTime + 0.1) // 미리 준비가 안 된 경우의 예비
+    }
   }
 }
 
