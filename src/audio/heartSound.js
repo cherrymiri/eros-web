@@ -141,32 +141,58 @@ class HeartSound {
     n.start(t); n.stop(t + 0.1)
   }
 
-  // 엔딩 진입 효과음: 짧고 맑은 '디링—' (유리 같은 두 음이 살짝 어긋나 울리고 부드럽게 사라짐).
-  // 심장박동 저음 필터를 거치지 않고 바로 출력. 심장박동 소리 설정이 꺼져 있으면 울리지 않음.
+  // 엔딩 진입 효과음 (N: 긴장에서 풀림 · 현악)
+  // 현악 화음이 잠깐 긴장(Dsus4)을 쥐고 있다가 '두근' 하고 밝은 D(add9)로 풀리며 약 1.5초에 사라짐.
+  // 직접 합성한 소리(외부 음원 없음). 심장박동 저음 필터를 거치지 않고 바로 출력. 심장박동 소리가 꺼져 있으면 울리지 않음.
   ending() {
     const ctx = this.ctx
     if (!ctx || !this.enabled || !this.comp) return
     this._resume()
     const t0 = ctx.currentTime + 0.02
     const out = ctx.createGain()
-    out.gain.value = 0.26
+    out.gain.value = 0.3
     const lp = ctx.createBiquadFilter()
-    lp.type = 'lowpass'; lp.frequency.value = 4200
-    out.connect(lp); lp.connect(this.comp)
-    const bell = (f, at, g, dur) => {
-      const t = t0 + at
-      const car = ctx.createOscillator(), mod = ctx.createOscillator(), mg = ctx.createGain(), vg = ctx.createGain()
-      car.frequency.value = f; mod.frequency.value = f * 3.5
-      mg.gain.setValueAtTime(f * 1.6, t); mg.gain.exponentialRampToValueAtTime(f * 0.05, t + dur * 0.6)
-      vg.gain.setValueAtTime(0.0001, t)
-      vg.gain.exponentialRampToValueAtTime(g, t + 0.008)
-      vg.gain.exponentialRampToValueAtTime(0.0001, t + dur)
-      mod.connect(mg); mg.connect(car.frequency); car.connect(vg); vg.connect(out)
-      car.start(t); mod.start(t); car.stop(t + dur + 0.05); mod.stop(t + dur + 0.05)
+    lp.type = 'lowpass'; lp.frequency.value = 4500
+    // 짧은 잔향 (공간감)
+    if (!this.endVerb) {
+      const len = Math.floor(ctx.sampleRate * 1.2)
+      const ir = ctx.createBuffer(2, len, ctx.sampleRate)
+      for (let c = 0; c < 2; c++) {
+        const d = ir.getChannelData(c)
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3) * 0.5
+      }
+      this.endVerb = ir
     }
-    bell(587.33, 0, 0.55, 1.6)   // D5
-    bell(880.0, 0.07, 0.42, 1.8) // A5
-    bell(1174.66, 0.14, 0.22, 1.4) // D6 (아주 작게)
+    const verb = ctx.createConvolver(); verb.buffer = this.endVerb
+    const wet = ctx.createGain(); wet.gain.value = 0.35
+    out.connect(lp); lp.connect(this.comp); lp.connect(verb); verb.connect(wet); wet.connect(this.comp)
+    const midi = (m) => 440 * Math.pow(2, (m - 69) / 12)
+    // 화음 하나: 음마다 기음 + 2배음 + 3배음, 살짝 떨리는 비브라토
+    const chord = (notes, at, dur, att, rel, g) => {
+      const t = t0 + at
+      const vg = ctx.createGain()
+      vg.gain.setValueAtTime(0.0001, t)
+      vg.gain.linearRampToValueAtTime(g, t + att)
+      vg.gain.setTargetAtTime(0.0001, t + att + 0.15, 1 / rel)
+      vg.connect(out)
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 5
+      const end = t + dur + 0.3
+      for (const m of notes) {
+        const f = midi(m)
+        for (const [mul, a] of [[1, 1], [2.003, 0.45], [3, 0.2]]) {
+          const o = ctx.createOscillator(), og = ctx.createGain(), dep = ctx.createGain()
+          o.frequency.value = f * mul
+          dep.gain.value = f * mul * 0.004
+          lfo.connect(dep); dep.connect(o.frequency)
+          og.gain.value = a / notes.length
+          o.connect(og); og.connect(vg)
+          o.start(t); o.stop(end)
+        }
+      }
+      lfo.start(t); lfo.stop(end)
+    }
+    chord([50, 55, 57, 62], 0, 0.42, 0.08, 6, 0.9)        // 긴장 (Dsus4)
+    chord([50, 54, 57, 62, 66], 0.36, 1.4, 0.06, 2, 1.0)  // 풀림 (D)
   }
 }
 
