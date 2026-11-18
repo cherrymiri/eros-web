@@ -79,6 +79,7 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
   const material = useMemo(() => createRubyMaterial(), [])
   const group = useRef()
   const spin = useRef(0) // 현재 회전 속도(rad/s)
+  const turn = useRef() // 회전 전용 그룹: 화면 중앙(카메라가 바라보는 점)을 축으로 돎
   const backMat = useMemo(() => createBackDepthMaterial(material.userData.uInflate), [material])
   const backRT = useMemo(() => {
     const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true })
@@ -126,7 +127,7 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
     // 소리를 멈추면 부드럽게 감속해 그 자리에 멈춤. (약 18초에 한 바퀴)
     const want = bpmRef.current.voicing && !bpmRef.current.hold ? 0.35 : 0
     spin.current += (want - spin.current) * (1 - Math.exp(-dt * 1.5))
-    if (group.current && spin.current > 0.0005) group.current.rotation.y += spin.current * dt
+    if (turn.current && spin.current > 0.0005) turn.current.rotation.y += spin.current * dt
     material.userData.uInflate.value = o.inflate
     // BPM이 높을수록 전체 빛이 조금씩 밝아지고, 145 이상에서는 박동마다 빛이 살짝 출렁임
     const climax = Math.min(1, Math.max(0, (bpm - 120) / 40))
@@ -160,12 +161,14 @@ function Eros({ bpmRef, settingsRef, glowRef, hudRef, fxRef }) {
   })
 
   return (
+    <group ref={turn}>
     <group position={center.clone().negate()}>
       <group position={pivot}>
         <group ref={group}>
           <primitive object={scene} position={pivot.clone().negate()} />
         </group>
       </group>
+    </group>
     </group>
   )
 }
