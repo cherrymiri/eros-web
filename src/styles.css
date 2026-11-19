@@ -304,7 +304,7 @@ body {
    모든 가사가 줄바꿈 없이 한 줄로 보이도록 글자 크기를 화면 너비(vw) 기준으로 맞춤.
    핵심 문구만 존재감을 유지하고, 나머지는 한 단계 작게. */
 @media (max-width: 600px) {
-  .ending { --u: 3.55vw; }
+  .ending { --u: 4.5vw; } /* 글씨 약 27% 키움 — 가장 긴 줄도 화면 폭 안에 한 줄로 들어감 */
   .en-inner { padding: 0 14px; max-width: 100%; }
   .en-lyrics { line-height: 1.34; letter-spacing: -0.03em; }
   .ln { white-space: nowrap; padding: .12em .1em; }

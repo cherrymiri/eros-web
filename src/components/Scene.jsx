@@ -194,7 +194,7 @@ function Rig({ phaseLive }) {
   useEffect(() => {
     const w = size.width, h = size.height
     const narrow = w < 700
-    const shift = narrow ? Math.min(52, w * 0.13) : 0 // PC: 오브제를 화면 정중앙에 (회전 축도 정중앙)
+    const shift = 0 // PC·모바일 모두 오브제를 화면 가로 정중앙에 (회전 축도 정중앙)
     camera.setViewOffset(w, h, shift, narrow ? -4 : -h * 0.03, w, h) // y: 장면을 살짝 위로 (문구와 겹침 방지)
     camera.updateProjectionMatrix()
     return () => { camera.clearViewOffset(); camera.updateProjectionMatrix() }
