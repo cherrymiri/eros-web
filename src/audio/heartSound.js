@@ -148,7 +148,10 @@ class HeartSound {
   //          (엔딩 순간 화면 전환·마이크 종료와 겹쳐도 소리가 끊기지 않음)
   _buildEnding(ctx, dest, t0) {
     const out = ctx.createGain()
-    out.gain.value = 0.12 // 박동과 비슷한 크기로 (예전 0.3 → 약 8dB 낮춤: 큰 스피커에선 박동보다 살짝 작고, 노트북에선 살짝 큼)
+    // 박동과 비슷한 크기로 (예전 0.3 → 약 8dB 낮춤). 폰 스피커에선 낮은 박동은 묻히고 현악만 또렷해서
+    // 다른 작품 엔딩보다 커 보이므로, 폰·태블릿에서는 3dB 더 낮춤
+    const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches
+    out.gain.value = touch ? 0.085 : 0.12
     const lp = ctx.createBiquadFilter()
     lp.type = 'lowpass'; lp.frequency.value = 4500
     const len = Math.floor(ctx.sampleRate * 1.2)
